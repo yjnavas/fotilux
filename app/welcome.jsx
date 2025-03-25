@@ -19,7 +19,7 @@ const Welcome = () => {
         <Image source={require('../assets/images/react-logo.png')} resizeMode="contain" style={styles.welcomeImage} />
         {/* title */}
         <View style={{gap:20}}>
-          <Text style={styles.title}>Pixify!</Text>
+          <Text style={styles.title}>Fotilux!</Text>
           <Text style={styles.punchline}>Where every thought finds a home and every image tells a story.</Text>
         </View>
         {/* footer */}
