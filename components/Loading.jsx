@@ -3,7 +3,7 @@ import React from 'react'
 import { theme } from '../constants/theme'
 import { ActivityIndicator } from 'react-native-web'
 
-const Loading = ({ size="large", color=theme.colors.primary }) => {
+const Loading = ({ size="large", color=theme.colors.textWhite }) => {
   return (
     <View style={{ justifyContent: 'center', alignItems: 'center'}}>
       <ActivityIndicator size={size} color={color} />

@@ -10,73 +10,46 @@ import Input from '../components/Input'
 import Button from '../components/Button'
 import ScreenWrapper from '../components/ScreenWrapper'
 
-const login = () => {
+const registered = () => {
   const router = useRouter();
   const emailRef = useRef("");
   const passwordRef = useRef("");
   const [loading, setLoading] = useState(false);
   const onSubmit = async () => {
-    if(!emailRef.current || !passwordRef.current){
-      Alert.alert('Login', 'Please fill all the fields');
-      return;
-    }else{
       setLoading(true);
       setTimeout(() => {
         setLoading(false);
         router.push('welcome');
       }, 2000);
-    }
   };
   return (
     <ScreenWrapper bg={theme.colors.background}>
       <StatusBar style="dark" />
       <View style={styles.container}>
         <BackButton router={router} />
-        {/* login image */}
-        <View style={styles.imageContainer}>
-          <Image source={require('../assets/images/fotilux.jpeg')} resizeMode="cover" style={styles.loginImage} />
+        {/* welcome text */}
+        <View>
+          <Text style={styles.registeredText}>!Registro Exitoso!</Text>
         </View>
-        {/* form */}
-        <View style={styles.form} role="form">
-          <View>
-            <Text style={styles.label}>Usuario</Text>
-            <Input
-              onChangeText={value=>emailRef.current = value}
-              />
-          </View>
-          <View>
-            <Text style={styles.label}>Contraseña</Text>
-            <Input
-              secureTextEntry={true}
-              onChangeText={value=>passwordRef.current = value}
-            />
-          </View>
-          {/* <Text style={styles.forgotPassword}>
-            Forgot password?
-          </Text> */}
-          {/* button */}
-          <View style={{paddingTop: hp(4)}}>
-            <Button buttonStyle={{backgroundColor: theme.colors.primaryWelcome}} hasShadow={false} title={'Iniciar Sesión'} loading={loading} onPress={onSubmit} />
-          </View>
+        {/* Sucesfull image */}
+        <View style={styles.circularImageContainer}>
+          <Image source={require('../assets/images/check.png')} resizeMode="cover" style={styles.circularImage} />
         </View>
+          <Text style={styles.registeredSecondText}>!Ya puedes iniciar sesion! has click para volver al inicio</Text>
 
         {/* footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            ¿No tienes una cuenta?
-          </Text>
-          <Pressable onPress={() => router.push('signUp')}>
-            <Text style={[styles.footerText, {color: theme.colors.textWhite, fontWeight: theme.fonts.semibold}]} >
-              Registrate
-            </Text>
-          </Pressable>
+          {/* button */}
+          <View style={{paddingTop: hp(4)}}>
+            <Button buttonStyle={{backgroundColor: theme.colors.primaryWelcome, width: 160, height: 60, fontWeight: theme.fonts.extrabold }} hasShadow={false} title={'OK'} loading={loading} onPress={onSubmit} />
+          </View>
         </View>
       </View>
     </ScreenWrapper>
   )
 }
 
-export default login
+export default registered
 
 const styles = StyleSheet.create({
   container:{
@@ -85,22 +58,45 @@ const styles = StyleSheet.create({
     paddingHorizontal : wp(4),
     backgroundColor: theme.colors.background,
   },
+  registeredText: {
+    fontSize: hp(16),
+    fontWeight: theme.fonts.bold,
+    color: theme.colors.textWhite,
+    textAlign: 'center',
+  },
+  registeredSecondText: {
+    fontSize: hp(6),
+    fontWeight: theme.fonts.bold,
+    color: theme.colors.textWhite,
+    textAlign: 'center',
+  },
+  imageContainer: {
+    width: wp(25),
+    height: hp(55),
+    borderRadius: 100,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    marginBottom: hp(2),
+    backgroundColor: '#f0f0f0',
+  },
   label: {
     fontSize: hp(4),
     color: theme.colors.textWhite,
     marginBottom: 5,
     paddingLeft: hp(4),
   },
-  imageContainer: {
-    width: wp(25),
-    height: hp(55),
-    borderRadius: 60,
+  circularImageContainer: {
+    width: wp(20),
+    height: wp(20),
+    borderRadius: wp(50) / 2,
     overflow: 'hidden',
     alignSelf: 'center',
-    marginBottom: hp(2),
-    backgroundColor: '#f0f0f0',
+    marginVertical: hp(2),
+    backgroundColor: theme.colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  loginImage: {
+  circularImage: {
     width: '100%',
     height: '100%',
   },
@@ -124,7 +120,6 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   footerText:{
-    fontSize: hp(4),
     textAlign: 'center',
     color: theme.colors.textWhite,    
   }

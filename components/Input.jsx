@@ -34,5 +34,6 @@ const styles = StyleSheet.create({
         borderCurve: 'continuous',
         paddingHorizontal: 18,
         gap: 12,
+        backgroundColor: theme.colors.textWhite,
     },
 })
