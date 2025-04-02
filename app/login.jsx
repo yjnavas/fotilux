@@ -23,7 +23,7 @@ const login = () => {
       setLoading(true);
       setTimeout(() => {
         setLoading(false);
-        router.push('welcome');
+        router.push('home');
       }, 2000);
     }
   };
