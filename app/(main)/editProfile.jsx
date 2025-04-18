@@ -5,11 +5,12 @@ import { hp, wp } from '../../helpers/common'
 import { theme } from '../../constants/theme'
 import ScreenWrapper from '../../components/ScreenWrapper'
 import { Image } from 'expo-image'
-import { getUserImageSrc } from '../../services/imageServices'
+import { getUserImageSrc, uploadFile } from '../../services/imageServices'
 import Icon from '../../assets/icons'
 import Input from '../../components/Input'
 import Button from '../../components/Button'
 import { useRouter } from 'expo-router'
+import * as ImagePicker from 'expo-image-picker';
 
 const EditProfile = () => {
     const currentUser = {
@@ -18,7 +19,7 @@ const EditProfile = () => {
         email: 'yovanijnavas@gmail.com',
         phone: '+34 600 000 000',
         bio: 'Estudiante de ingeniería en la Universidad de Madrid, amante de la fotografía y de los videojuegos',
-        image: null,
+        image: "user?.image",
     };
 
     const [loading, setLoading] = useState(false);
@@ -36,8 +37,8 @@ const EditProfile = () => {
 
     const onSubmit = async () => {
       let UserData = {...user};
-      let { name, address, email, phone, bio } = UserData;
-      if(!name || !address || !email || !phone || !bio){
+      let { name, address, email, phone, bio, image } = UserData;
+      if(!name || !address || !email || !phone || !bio || !image){
         if (Platform.OS === 'web') {
             const confirm = window.confirm("Por favor rellene todos los campos");
             if (confirm) onLogout();
@@ -47,9 +48,22 @@ const EditProfile = () => {
               { text: 'OK', onPress: onLogout, style: 'destructive' },
             ]);
           }
-        return;
-      }else{
-        // setLoading(true);
+      }
+      setLoading(true);
+      // if( typeof image === 'object'){
+      //   //upload image 
+      //   let imageRes = await uploadFile('profiles', image.uri);
+      //   if(imageRes.success){
+      //     UserData.image = imageRes.data;
+      //   }
+      //   else{
+      //     UserData.image = null;
+      //   }
+      // }
+      // const res = await updateUser(currentUser?.id, UserData);
+      setLoading(false);
+      // if(res.succes){
+      if(true){
         if (Platform.OS === 'web') {
           const confirm = window.confirm("Datos actualizados correctamente");
           if (confirm) router.push('profile');
@@ -62,15 +76,26 @@ const EditProfile = () => {
       }
     }
     const onPickImage = async () => {
-      //   const result = await ImagePicker.launchImageLibraryAsync({
-      //       mediaTypes: ImagePicker.MediaTypeOptions.All,
-      //       allowsEditing: true,
-      //       aspect: [4, 3],
-      //       quality: 1,
-      //   }
-      // );
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.7,
+        });
+
+        console.log(result);
+
+        if (!result.canceled) {
+          setUser({...user, image: result.assets[0]});
+        }
+
+        if(result.success){
+
+        }
+      
     }
-    let imageSource = getUserImageSrc(currentUser.image);
+    // let imageSource = user.image && typeof user.image === 'object' ? user.image.uri : getUserImageSrc(currentUser.image);
+    let imageSource = user.image ? getUserImageSrc(currentUser.image) : getUserImageSrc();
   return (
     <ScreenWrapper bg={'white'}>
       <View style={styles.container}>

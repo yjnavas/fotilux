@@ -5,20 +5,27 @@ import BackButton from './BackButton';
 import { hp } from '../helpers/common';
 import { theme } from '../constants/theme';
 
-const Header = ({title, showBackButton = true, mb=10}) => {
-    const router = useRouter();
+const Header = ({ title, showBackButton = true, mb = 10, backToHome = false }) => {
+  const router = useRouter();
+
+  const handleHomeRedirect = () => {
+    router.navigate('/home');
+  };
+
   return (
-    <View style={[styles.container, {marginBottom: mb}]}>
-      {
-        showBackButton &&
+    <View style={[styles.container, { marginBottom: mb }]}>
+      {showBackButton && (
         <View style={styles.backButton}>
-          <BackButton router={router} />
+          <BackButton 
+            router={router} 
+            onPress={backToHome ? handleHomeRedirect : null} 
+          />
         </View>
-      }
+      )}
       <Text style={styles.title}>{title || ""}</Text>
     </View>
-  )
-}
+  );
+};
 
 export default Header
 
