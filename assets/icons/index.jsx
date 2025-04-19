@@ -12,6 +12,11 @@ import Edit from './Edit'
 import Call from './Call'
 import Camera from './Camera'
 import Location from './Location'
+import Image from './Image'
+import Delete from './Delete'
+import Comment from './Comment'
+import Share from './Share'
+import ThreeDotsHorizontal  from './ThreeDotsHorizontal'
 import { theme } from '../../constants/theme'
 
 const icons = {
@@ -27,6 +32,11 @@ const icons = {
   call: Call,
   camera: Camera,
   location: Location,
+  image: Image,
+  delete: Delete,
+  comment: Comment,
+  share: Share,
+  threeDotsHorizontal: ThreeDotsHorizontal,
 }
 
 const Icon = ({name, ...props}) => {

@@ -10,17 +10,10 @@ import Icon from '../../assets/icons'
 import Input from '../../components/Input'
 import Button from '../../components/Button'
 import { useRouter } from 'expo-router'
-import * as ImagePicker from 'expo-image-picker';
+import * as ImagePicker from 'expo-image-picker'
+import { currentUser } from '../../constants/user'
 
 const EditProfile = () => {
-    const currentUser = {
-        name: 'Yovani Navas',
-        address: 'Calle de la República, 1, 28001 Madrid, España',
-        email: 'yovanijnavas@gmail.com',
-        phone: '+34 600 000 000',
-        bio: 'Estudiante de ingeniería en la Universidad de Madrid, amante de la fotografía y de los videojuegos',
-        image: "user?.image",
-    };
 
     const [loading, setLoading] = useState(false);
 
@@ -69,7 +62,6 @@ const EditProfile = () => {
           if (confirm) router.push('profile');
         } else {
           Alert.alert('Exito', "Datos actualizados correctamente", [
-            { text: 'Cancelar', style: 'cancel' },
             { text: 'OK', onPress: router.push('profile'), style: 'destructive' },
           ]);
         }
@@ -82,8 +74,6 @@ const EditProfile = () => {
             aspect: [4, 3],
             quality: 0.7,
         });
-
-        console.log(result);
 
         if (!result.canceled) {
           setUser({...user, image: result.assets[0]});

@@ -7,16 +7,11 @@ import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
 import Icon from '../../assets/icons';
 import Avatar from '../../components/Avatar';
+import { currentUser } from '../../constants/user'
 
 const Profile = () => {
     const router = useRouter();
-    const user = {
-        name: 'Yovani Navas',
-        address: 'Calle de la República, 1, 28001 Madrid, España',
-        email: 'yovanijnavas@gmail.com',
-        phone: '+34 600 000 000',
-        bio: 'Estudiante de ingeniería en la Universidad de Madrid, amante de la fotografía y de los videojuegos',
-    };
+    const user = currentUser;
 
   return (
     <ScreenWrapper bg={'white'}>
@@ -64,7 +59,7 @@ const UserHeader = ({user,router}) => {
             </TouchableOpacity>
         </View>
         <View style={styles.container}>
-            <View style={{gap: 15}}>
+            <View style={{gap: 2}}>
                 <View style={styles.avatarContainer}>
                     <Avatar
                         uri={"user?.image"}
@@ -81,14 +76,14 @@ const UserHeader = ({user,router}) => {
                 {/* email, phone, bio */}
                 <View style={{gap: 10}}>
                     <View style={styles.info}>
-                        <Icon name="mail" size={20} color={theme.colors.textLight} />
+                        <Icon name="mail" size={18} width={18} color={theme.colors.textLight} />
                         <Text style={styles.infoText}>{user && user.email}</Text>
                     </View>
                 </View>
                 {
                     user && user.phone && (
                         <View style={styles.info}>
-                            <Icon name="call" size={20} color={theme.colors.textLight} />
+                            <Icon name="call" size={18} width={18} color={theme.colors.textLight} />
                             <Text style={styles.infoText}>{user && user.phone}</Text>
                         </View>
                     )
@@ -96,19 +91,18 @@ const UserHeader = ({user,router}) => {
                 {
                     user && user.address && (
                         <View style={styles.info}>
-                            <Icon name="location" size={20} color={theme.colors.textLight} />
+                            <Icon name="location" size={18} width={18} color={theme.colors.textLight} />
                             <Text style={styles.infoText}>{user && user.address}</Text>
                         </View>
                     )
                 }
-                {
+                {/* {
                     user && user.bio && (
                         <View style={styles.info}>
-                            {/* <Icon name="call" size={20} color={theme.colors.textLight} /> */}
                             <Text style={styles.infoText}>{user && user.bio}</Text>
                         </View>
                     )
-                }
+                } */}
             </View>
         </View>
     </View> 

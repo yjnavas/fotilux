@@ -41,12 +41,16 @@ const login = () => {
           <View>
             <Text style={styles.label}>Usuario</Text>
             <Input
+              placeholder="Ingresa tu email"
+              icon={<Icon name="mail" size={20} width={20} color={theme.colors.textLight} />}
               onChangeText={value=>emailRef.current = value}
               />
           </View>
           <View>
             <Text style={styles.label}>Contraseña</Text>
             <Input
+              placeholder="Ingresa tu contraseña"
+              icon={<Icon name="lock" size={20} width={20} color={theme.colors.textLight} />}
               secureTextEntry={true}
               onChangeText={value=>passwordRef.current = value}
             />
