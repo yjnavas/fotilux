@@ -1,20 +1,51 @@
-import { StyleSheet, Text, View, Button, Pressable } from 'react-native'
-import React from 'react'
+import { StyleSheet, Text, View, Button, Pressable, FlatList } from 'react-native'
+import React, { useEffect, useState } from 'react'
 import ScreenWrapper from '../../components/ScreenWrapper'
 import { router, useRouter } from 'expo-router'
 import { wp, hp } from '../../helpers/common'
 import { theme } from '../../constants/theme'
 import Icon from '../../assets/icons'
 import Avatar from '../../components/Avatar'
+import { currentUser } from '../../constants/user'
+import { getPosts } from '../../services/postServices'
+import PostCard from '../../components/PostCard'
+import Loading from '../../components/Loading'
 
+
+var limit = 0;
 const Home = () => {
 
+  const user = currentUser;
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [posts, setPosts] = useState([]);
+  useEffect(() => {
+    // Define la función asíncrona dentro del efecto
+    const fetchPosts = async () => {
+      let res = await getPosts(user?.id);
+      if (res.success) {
+        console.log('llego',res.data);
+        setPosts(res.data);
+      }
+    };
+  
+    // Ejecuta la función
+    fetchPosts();
+  }, [user?.id]);
 
-  // const onLogout = () => {
-  //   console.log('logout')
-  //   router.replace('/login')
-  // }
+  const handleLoadMore = () => {
+    setTimeout(() => {
+      setLoading(true);
+    }, 20000);
+    setLoading(false);
+  }
+
+  const onLogout = () => {
+    // llamado a la api
+    limit = limit + 10;
+    console.log('logout')
+    router.replace('/login')
+  }
 
   return (
     <ScreenWrapper bg={'white'}>
@@ -38,6 +69,29 @@ const Home = () => {
             </Pressable>
           </View>
         </View>
+
+      {/* posts */}
+        <FlatList
+          data={posts}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listStyle}
+          keyExtractor={item => item.id.toString()}
+          renderItem={({ item }) => 
+            <PostCard
+              item={item}
+              currentUser={user}
+              router={router}
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            <View style={{marginVertical: posts.length == 0 ? 200: 30}}>
+              <Loading/>
+            </View>
+          }
+        />
+
       </View>      
       {/* <Button title="logout" onPress={onLogout} /> */}
     </ScreenWrapper>
@@ -77,8 +131,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   listStyle: {
-    paddingTop: 20,
-    paddingHorizontal: wp(4),
+    paddingTop: 10,
+    paddingHorizontal: wp(2),
   },
   noPosts: {
     fontSize: hp(2),
