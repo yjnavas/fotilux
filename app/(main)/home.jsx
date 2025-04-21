@@ -18,11 +18,13 @@ const Home = () => {
   const user = currentUser;
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [posts, setPosts] = useState([]);
   useEffect(() => {
     // Define la función asíncrona dentro del efecto
     const fetchPosts = async () => {
       let res = await getPosts(user?.id);
+      console.log('llego',res);
       if (res.success) {
         console.log('llego',res.data);
         setPosts(res.data);
@@ -32,6 +34,19 @@ const Home = () => {
     // Ejecuta la función
     fetchPosts();
   }, [user?.id]);
+
+  const getMorePosts = async () => {
+    // pentiente hacer que funcion trabaje ocn limit
+    if(!hasMore) return null;
+    // limit = limit + 4;
+
+    // console.log('limit', limit);
+    // let res = await fetchPosts(user?.id, limit);
+    // if(res.success){
+    //   if(post.length==res.data.lenght) setHasmore(false);
+    //   setPosts(res.data);
+    // }
+  };
 
   const handleLoadMore = () => {
     setTimeout(() => {
@@ -85,11 +100,15 @@ const Home = () => {
           }
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
-          ListFooterComponent={
+          ListFooterComponent={hasMore ? (
             <View style={{marginVertical: posts.length == 0 ? 200: 30}}>
               <Loading/>
             </View>
-          }
+            ) : (
+              <View style={{marginVertical: 30}}>
+                <Text style={styles.noPosts}>No hay mas posts</Text>
+              </View>
+            )}
         />
 
       </View>      
@@ -135,7 +154,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: wp(2),
   },
   noPosts: {
-    fontSize: hp(2),
+    fontSize: hp(4),
     textAlign: 'center',
     color: theme.colors.text,
   },
