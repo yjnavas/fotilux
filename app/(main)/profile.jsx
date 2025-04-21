@@ -73,8 +73,11 @@ const UserHeader = ({user,router}) => {
                 <View style={{alignItems: 'center', gap: 4}}>
                     <Text style={styles.userName}>{user.name}</Text>
                 </View>
+                <View style={{alignItems: 'center', gap: 4}}>
+                  <Text style={styles.textUsername}>{user && user.username}</Text>
+                </View>
                 {/* email, phone, bio */}
-                <View style={{gap: 10}}>
+                {/* <View style={{gap: 10}}>
                     <View style={styles.info}>
                         <Icon name="mail" size={18} width={18} color={theme.colors.textLight} />
                         <Text style={styles.infoText}>{user && user.email}</Text>
@@ -95,14 +98,29 @@ const UserHeader = ({user,router}) => {
                             <Text style={styles.infoText}>{user && user.address}</Text>
                         </View>
                     )
-                }
-                {/* {
+                } */}
+                {
                     user && user.bio && (
                         <View style={styles.info}>
                             <Text style={styles.infoText}>{user && user.bio}</Text>
                         </View>
                     )
-                } */}
+                }
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 20, justifyContent: 'space-evenly' }}>
+                    <Pressable style={styles.textFollow}>
+                      <Text style={styles.descText}>Posts</Text>
+                      <Text style={styles.infoText}>9</Text>
+                    </Pressable>
+                    <Pressable style={styles.textFollow} onPress={()=>router.push('followers')}>
+                      <Text style={styles.descText}>Seguidores</Text>
+                      <Text style={styles.infoText}>200K</Text>
+                    </Pressable>
+                    <Pressable style={styles.textFollow} onPress={()=>router.push('following')}>
+                      <Text style={styles.descText}>Siguiendo</Text>
+                      <Text style={styles.infoText}>2K</Text>
+                    </Pressable>
+                </View>
             </View>
         </View>
     </View> 
@@ -146,6 +164,20 @@ const styles = StyleSheet.create({
         elevation: 7,
         width: hp(9),
     },
+    textFollow: {
+      color: theme.colors.text,
+      fontSize: hp(3),
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    textUsername:{
+      color: theme.colors.text,
+      fontSize: hp(4),
+      justifyContent: 'center',
+      alignItems: 'center',
+      fontWeight: theme.fonts.bold,
+      marginBottom: 10,
+    },
     userName: {
         fontSize: hp(6),
         fontWeight: theme.fonts.medium,
@@ -156,10 +188,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 10,
     },
+    descText: {
+      fontSize: hp(4),
+      fontWeight: theme.fonts.bold, 
+      color: theme.colors.text,
+      textAlign: 'center',
+    },
     infoText: {
         fontSize: hp(3.5),
         fontWeight: theme.fonts.semibold,
         color: theme.colors.textLight,
+        textAlign: 'center',
     },
     loggoutButton: {
         position: 'absolute',

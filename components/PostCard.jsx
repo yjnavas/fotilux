@@ -1,5 +1,5 @@
 import { Share, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native'
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { theme } from '../constants/theme'
 import { hp, wp } from '../helpers/common'
 import Avatar from './Avatar'
@@ -14,6 +14,7 @@ import imagen3 from '../assets/images/imagen3.jpg';
 import { stripHtmlTags } from '../helpers/common'
 import { downloadFile, getUserImageSrc } from '../services/imageServices'
 import Loading from './Loading'
+
 
 const images = {
   'imagen1.jpg': imagen1,
@@ -45,6 +46,10 @@ const PostCard = ({
     showMoreIcon = true,
     isDetail = false, 
 }) => {
+
+    const inputRef = useRef(null);
+    const commentRef = useRef('');
+    
     const shadowStyles = {
         shadorOffset: {
             width: 0,
@@ -132,39 +137,10 @@ const PostCard = ({
     }
 
     const handleEdit = () => {
-      if (Platform.OS === 'web') {
-        const confirm = window.confirm("¿Desea editar el post?");
-        if (confirm) {
-          window.alert("✅ Se editado con éxito");
-          router.push('home');
-        }
-      } else {
         inputRef?.current?.clear();
         commentRef.current = '';
-        Alert.alert('Confirmar', "¿Desea editar el post?", [
-          { 
-            text: 'OK', 
-            onPress: () => {
-              Alert.alert(
-                'Éxito', 
-                'Se editado con éxito ✅',
-                [
-                  { 
-                    text: 'OK', 
-                    onPress: () => router.push('home') 
-                  } 
-                ]
-              );
-            }, 
-            style: 'destructive' 
-          },
-          { 
-            text: 'Cancelar', 
-            onPress: () => console.log('Cancelada la edición'), 
-            style: 'cancel' 
-          },
-        ]);
-      }
+        router.push({pathname: 'newPost', params: {postId: item?.id}});
+      
     }
   return (
     <View style={[styles.container, hasShadow && shadowStyles]}>
