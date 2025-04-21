@@ -1,4 +1,4 @@
-import { Alert, StyleSheet, Text, TouchableOpacity, View, Platform, Pressable } from 'react-native'
+import { Alert, StyleSheet, Text, TouchableOpacity, View, Platform, Pressable, FlatList, Image, Dimensions  } from 'react-native'
 import React from 'react'
 import { useRouter } from 'expo-router';
 import ScreenWrapper from '../../components/ScreenWrapper';
@@ -10,15 +10,35 @@ import Avatar from '../../components/Avatar';
 import { currentUser } from '../../constants/user'
 
 const Profile = () => {
-    const router = useRouter();
-    const user = currentUser;
-
+  const user = currentUser;
+  const router = useRouter();
   return (
     <ScreenWrapper bg={'white'}>
       <UserHeader user={user} router={router}/>
     </ScreenWrapper>
   )
 }
+const images = [
+  require('../../assets/images/imagen1.jpg'),
+  require('../../assets/images/imagen2.jpg'),
+  require('../../assets/images/imagen3.jpg'),
+  require('../../assets/images/imagen2.jpg'),
+  require('../../assets/images/imagen3.jpg'),
+  require('../../assets/images/imagen1.jpg'),
+  require('../../assets/images/imagen3.jpg'),
+  require('../../assets/images/imagen1.jpg'),
+  require('../../assets/images/imagen2.jpg'),
+];
+
+const renderItem = ({ item, router }) => (
+  
+<TouchableOpacity 
+    style={styles.imageContainer}
+    onPress={() => router.push({ pathname: 'postDetails', params: { id: '1' }})}
+>
+    <Image source={item} style={styles.image} />
+</TouchableOpacity>
+);
 
 const UserHeader = ({user,router}) => {
     const onLogout = () => {
@@ -107,7 +127,7 @@ const UserHeader = ({user,router}) => {
                     )
                 }
 
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 20, justifyContent: 'space-evenly' }}>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 20, justifyContent: 'space-evenly',  zIndex: 1  }}>
                     <Pressable style={styles.textFollow}>
                       <Text style={styles.descText}>Posts</Text>
                       <Text style={styles.infoText}>9</Text>
@@ -121,8 +141,26 @@ const UserHeader = ({user,router}) => {
                       <Text style={styles.infoText}>2K</Text>
                     </Pressable>
                 </View>
+
+                <View 
+                  style={{
+                      height: 1,
+                      width: '100%',
+                      backgroundColor: '#CCCCCC',
+                      marginVertical: 10
+                  }}
+                />
             </View>
+            <FlatList
+              data={images}
+              renderItem={(item) => renderItem({ ...item, router })}
+              keyExtractor={(item, index) => index.toString()}
+              numColumns={3}
+              contentContainerStyle={styles.gridContainer}
+              showsVerticalScrollIndicator={false}
+            />
         </View>
+
     </View> 
     )
 }
@@ -215,5 +253,20 @@ const styles = StyleSheet.create({
         fontSize: hp(2),
         textAlign: 'center',
         color: theme.colors.text,
-    }
+    },
+    gridContainer: {
+      paddingTop: 20,
+      paddingBottom: 20,
+    },
+    imageContainer: {
+        width: (Dimensions.get('window').width - 4 * wp(2)) / 3,
+        height: (Dimensions.get('window').width - 4 * wp(2)) / 3,
+        backgroundColor: theme.colors.grayLight,
+        overflow: 'hidden',
+    },
+    image: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
 })

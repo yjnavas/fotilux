@@ -1,4 +1,4 @@
-import { Share, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native'
+import { Share, StyleSheet, Text, TouchableOpacity, View, Platform, Alert } from 'react-native'
 import React, { useState, useRef } from 'react'
 import { theme } from '../constants/theme'
 import { hp, wp } from '../helpers/common'
