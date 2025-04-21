@@ -41,3 +41,20 @@ export const getFilePath = (folderName, isImage=true) => {
     return `${folderName}/${(new Date()).getTime()}/${isImage ? '.png' : 'mp4'}`;
     //profiles/478923748927894.png
 }
+
+export const downloadFile = async (fileUrl) => {
+    try{
+        // console.log('getLocalFilePath(fileUrl)', getLocalFilePath(fileUrl));
+        console.log('fileUrl)', fileUrl);
+        const {uri} = await FileSystem.downloadAsync(fileUrl.uri, fileUrl);
+        return uri;
+    }catch(error){
+        console.log('download file error: ', error);
+        return null;
+    }
+}
+
+export const getLocalFilePath = (filePath) => {
+    let fileName = filePath.split('/').pop();
+    return `${FileSystem.documentDirectory}${fileName}`;
+}

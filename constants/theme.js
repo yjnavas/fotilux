@@ -18,6 +18,7 @@ export const theme = {
         primaryWelcome: '#1D12B2',
     },
     fonts: {
+        small: '400',
         medium: '500',
         semibold: '600',
         bold: '700',

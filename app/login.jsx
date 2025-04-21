@@ -31,7 +31,7 @@ const login = () => {
     <ScreenWrapper bg={theme.colors.background}>
       <StatusBar style="dark" />
       <View style={styles.container}>
-        <BackButton router={router} />
+        {/* <BackButton router={router} /> */}
         {/* login image */}
         <View style={styles.imageContainer}>
           <Image source={require('../assets/images/fotilux.jpeg')} resizeMode="cover" style={styles.loginImage} />
@@ -88,6 +88,7 @@ const styles = StyleSheet.create({
     gap: 45,
     paddingHorizontal : wp(4),
     backgroundColor: theme.colors.background,
+    paddingTop: 80,
   },
   label: {
     fontSize: hp(4),

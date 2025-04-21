@@ -1,5 +1,5 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import React from 'react'
+import { Share, StyleSheet, Text, TouchableOpacity, View, Platform, Alert } from 'react-native'
+import React, { useState, useRef } from 'react'
 import { theme } from '../constants/theme'
 import { hp, wp } from '../helpers/common'
 import Avatar from './Avatar'
@@ -11,6 +11,10 @@ import imagen1 from '../assets/images/imagen1.jpg';
 import atardecer from '../assets/images/atardecer.jpg';
 import imagen2 from '../assets/images/imagen2.jpg';
 import imagen3 from '../assets/images/imagen3.jpg';
+import { stripHtmlTags } from '../helpers/common'
+import { downloadFile, getUserImageSrc } from '../services/imageServices'
+import Loading from './Loading'
+
 
 const images = {
   'imagen1.jpg': imagen1,
@@ -39,7 +43,13 @@ const PostCard = ({
     currentUser,
     router,
     hasShadow = false,
+    showMoreIcon = true,
+    isDetail = false, 
 }) => {
+
+    const inputRef = useRef(null);
+    const commentRef = useRef('');
+    
     const shadowStyles = {
         shadorOffset: {
             width: 0,
@@ -50,13 +60,88 @@ const PostCard = ({
         elevation: 1,
     }
 
+    const [likes, setLikes] = useState([]);
+    const [loading, setLoading] = useState(false);
+
     const openPostDetails = () => {
-        // router.push('postDetails', {id: item?.id});
+      if(!showMoreIcon) return null;
+        router.push({pathname: 'postDetails', params: {id: item?.id}});
+    }
+
+    const onLike = () => {
+        //crear dos servicios una para agregar like y otro para quitarlo
+    }
+
+    const onShare = async () => {
+      setLoading(true);
+      const timer = new Promise(resolve => setTimeout(resolve, 2000));
+    
+      try {
+        let content = { message: stripHtmlTags(item?.body) };
+        
+        if(item?.file) {
+          const fileUri = getUserImageSrc(item.file);
+          const uri = await Promise.race([
+            // downloadFile(fileUri),
+            timer // Timeout de seguridad
+          ]);
+          content.url = uri;
+        }
+    
+        await timer; // Esperar siempre los 3 segundos
+        Share.share(content);
+      } finally {
+        setLoading(false);
+      }
     }
 
     const createdAt = moment(item?.createdAt).format('MMM D');
+    // const liked = likes.filter(like=> like.userId==currentUser.id)[0]? true : false;
     const liked = true;
-    const likes = [];
+    const showDelete = true;
+
+    const handleDelete = () => {
+      if (Platform.OS === 'web') {
+        const confirm = window.confirm("¿Desea eliminar el post?");
+        if (confirm) {
+          window.alert("✅ Se eliminó con éxito");
+          router.push('home');
+        }
+      } else {
+        inputRef?.current?.clear();
+        commentRef.current = '';
+        Alert.alert('Confirmar', "¿Desea eliminar el post?", [
+          { 
+            text: 'OK', 
+            onPress: () => {
+              Alert.alert(
+                'Éxito', 
+                'Se eliminó con éxito ✅',
+                [
+                  { 
+                    text: 'OK', 
+                    onPress: () => router.push('home') 
+                  }
+                ]
+              );
+            }, 
+            style: 'destructive' 
+          },
+          { 
+            text: 'Cancelar', 
+            onPress: () => console.log('Cancelada la eliminación'), 
+            style: 'cancel' 
+          },
+        ]);
+      }
+    }
+
+    const handleEdit = () => {
+        inputRef?.current?.clear();
+        commentRef.current = '';
+        router.push({pathname: 'newPost', params: {postId: item?.id}});
+      
+    }
   return (
     <View style={[styles.container, hasShadow && shadowStyles]}>
       <View style={styles.header}>
@@ -72,12 +157,28 @@ const PostCard = ({
                 <Text style={styles.postTime}>{createdAt}</Text>
             </View>
         </View>
-
-        <TouchableOpacity onPress={openPostDetails}>
-          <View style={{justifyContent: 'center', alignItems: 'center'}}>
-                <Icon name="threeDotsHorizontal" size={hp(4)} strokeWidth={3} color={theme.colors.text} />
-          </View>
-        </TouchableOpacity>
+        {
+          showMoreIcon && (
+            <TouchableOpacity onPress={openPostDetails}>
+              <View style={{justifyContent: 'center', alignItems: 'center'}}>
+                    <Icon name="threeDotsHorizontal" size={hp(4)} strokeWidth={3} color={theme.colors.text} />
+              </View>
+            </TouchableOpacity>
+          )
+        }
+        {
+          // showDelete && currentUser.id === item?.userId && (
+          showDelete && isDetail && (
+            <View style={styles.actions}>
+              <TouchableOpacity onPress={handleEdit}>
+                <Icon name="edit" size={hp(4)} color={theme.colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDelete}>
+                <Icon name="delete" size={hp(4)} color={theme.colors.rose} />
+              </TouchableOpacity>
+            </View>
+          )
+        }
       </View>
 
         {/* post body media */}
@@ -111,7 +212,7 @@ const PostCard = ({
         {/* Linkedin01FreeIcons, comment, share */}
         <View style={styles.footer}>
           <View style={styles.footerButtons}>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={onLike}>
               <Icon name="heart" size={24} fill={liked ? theme.colors.rose : 'transparent'} color={liked ? theme.colors.rose : theme.colors.textLight} />
             </TouchableOpacity>
             <Text style={styles.count}>
@@ -121,19 +222,25 @@ const PostCard = ({
             </Text>
           </View>
           <View style={styles.footerButtons}>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={openPostDetails}>
               <Icon name="comment" size={24} color={ theme.colors.textLight} />
             </TouchableOpacity>
             <Text style={styles.count}>
               {
-                0
+                0 //item?.comments[0]?.length
               }
             </Text>
           </View>
           <View style={styles.footerButtons}>
-            <TouchableOpacity>
-              <Icon name="share" size={24} color={ theme.colors.textLight} />
-            </TouchableOpacity>
+            {
+              loading ? (
+                <Loading size="small" color={theme.colors.textLight} />
+              ) : (
+                <TouchableOpacity onPress={onShare}>
+                  <Icon name="share" size={24} color={ theme.colors.textLight} />
+                </TouchableOpacity>
+              )
+            }
             <Text style={styles.count}>
               {
                 0
@@ -205,7 +312,7 @@ const styles = StyleSheet.create({
     actions: {
         flexDirection: 'row',
         alignItems: 'cennter',
-        gap: 18,
+        gap: 0,
     },
     count: {
         color: theme.colors.text,

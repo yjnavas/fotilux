@@ -1,5 +1,5 @@
 // import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Pressable, Platform, Alert } from 'react-native'
-// import React, { useRef, useState } from 'react'
+// import React, { useRef, useState, useEffect } from 'react'
 // import ScreenWrapper from '../../components/ScreenWrapper'
 // import { hp, wp } from '../../helpers/common'
 // import { theme } from '../../constants/theme'
@@ -7,19 +7,58 @@
 // import { currentUser } from '../../constants/user'
 // import Avatar from '../../components/Avatar'
 // import RichTextEditor from '../../components/RichTextEditor'
-// import { useRouter } from 'expo-router'
+// import { useLocalSearchParams, useRouter } from 'expo-router'
 // import Icon from '../../assets/icons'
 // import Button from '../../components/Button'
 // import * as ImagePicker from 'expo-image-picker'
+// import { fetchPostDetails } from '../../services/postServices'
+// import Loading from '../../components/Loading'
 
-// const NewPost = () => {
+//   const NewPost = ({}) => {
+//   const [post, setPost] = useState(null);
+//   const [starLoading, setStarLoading] = useState(true);
+//   const { postId } = useLocalSearchParams();
 
+//   console.log('post', post);
 //   const user = currentUser;
+//   const router = useRouter();
+
 //   const bodyRef = useRef("");
 //   const editorRef = useRef(null);
-//   const router = useRouter();
+
 //   const [loading, setLoading] = useState(false);
-//   const [file, setFile] = useState(file);
+//   const [file, setFile] = useState(null);
+
+//   const getPostDetails = async (id) => {
+//     try {
+//       const [res] = await Promise.all([
+//         fetchPostDetails(id),
+//         new Promise(resolve => setTimeout(resolve, 2000))
+//       ]);
+      
+//       if(res.success) {
+//         setPost(res.data);
+//         // setFile(res.data?.file || null);
+//         bodyRef.current = res.data.body;
+        
+//         // Timeout para asegurar renderizado del editor
+//         setTimeout(() => {
+//           editorRef?.current?.setContentHTML(res.data.body);
+//         }, 300);
+//       }
+//     } catch (error) {
+//       console.error('Error fetching post:', error);
+//     } finally {
+//       setStarLoading(false);
+//     }
+//   };
+
+//   useEffect(() => {
+//     if(postId) getPostDetails(postId);
+//     else setStarLoading(false); // Caso para nuevo post
+//   }, [postId])
+
+
 //   const onPick = async () => {
 //     let mediaConfig = {
 //       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -38,7 +77,17 @@
 //     }
 //   }
 
-//   getFileUri = (file) => {
+// useEffect(() => {
+//   if(post && post.id){
+//     bodyRef.current = post.body;
+//     setFile(post.file || null);
+//     setTimeout(() => {
+//       editorRef?.current?.setContentHTML(post.body);
+//     }, 300); 
+//   }
+// }, [user]);
+
+//   const getFileUri = (file) => {
 //     if(!file) return null;
 //     if(isLocalFile(file)){
 //       return file.uri;
@@ -84,7 +133,7 @@
 //   return (
 //     <ScreenWrapper bg='white'>
 //       <View style={styles.container}>
-//         <Header title="Crear Post" backToHome={true}/>
+//         <Header title={post && post.id ? 'Editar Post' : 'Crear Post'} backToHome={true}/>
 //         <ScrollView style={{gap: 20}}>
           
 //           {/* avatar */}
@@ -141,12 +190,19 @@
 //           </View>
 
 //         </ScrollView>
-//         <Button 
-//           title="Publicar"
-//           loading={loading}
-//           hasShadow={false}
-//           onPress={onSubmit}
-//         />
+//         {
+//           starLoading ? (
+//             <Loading color={theme.colors.primary} size="large" />
+//           ) : (
+//             <Button 
+//               title={post && post.id ? 'Editar' : 'Publicar'}
+//               loading={loading}
+//               hasShadow={false}
+//               onPress={onSubmit}
+//             />
+//           )
+//         }
+
 //       </View>
 //     </ScreenWrapper>
 //   )

@@ -1,9 +1,10 @@
 import { StyleSheet, Text, View, TextInput } from 'react-native'
-import React from 'react'
+import React, {useRef} from 'react'
 import { theme } from '../constants/theme'
 import { hp } from '../helpers/common'
 
 const Input = (props) => {
+  const inputRef = useRef(null);
   return (
     <View style={[ styles.container, props.containerStyles && props.containerStyles ]}>
         {
