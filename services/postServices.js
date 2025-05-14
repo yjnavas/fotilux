@@ -1,3 +1,6 @@
+// URL directa a la API
+const API_URL = 'http://localhost:8000';
+
 export const createPost = async (post) => {
     try{
         return {success: true, msg: 'Post creado correctamente'};
@@ -16,22 +19,61 @@ export const UpdatePost = async (post) => {
     }
 };
 
-export const getPosts = async (userId) => {
-    try{
-        return {
-            success: true, 
-            data: [
-                {id: 1, name: 'joe', title: 'saludos', body: 'Hola a todos! soy <b>nuevo</b> por aqui! saludos', userId: 1, createdAt: '2024-01-18T10:00:00.000Z', updatedAt: '2023-04-18T10:00:00.000Z', file: 'imagen1.jpg'},
-                {id: 2, name: 'silmaris', title: 'que tal', body: '<h1>una foto de un atardecer en mi tierra natal</h1>', userId: 2, createdAt: '2024-02-18T10:00:00.000Z', updatedAt: '2023-04-18T10:00:00.000Z', file: 'atardecer.jpg'},
-                {id: 3, name: 'jorge', title: 'adios', body: 'buenas noches a todos, espero que descansen, por mi parte ha sido todo por hoy!', userId: 3, createdAt: '2024-03-18T10:00:00.000Z', updatedAt: '2023-04-18T10:00:00.000Z', file: 'imagen2.jpg'},
-                {id: 4, name: 'yovani', title: 'hola de nuevo', body: '<h4>a alguien mas le gustan los chesecake de chocolate tanto como a mi?</h4>', userId: 4, createdAt: '2024-04-18T10:00:00.000Z', updatedAt: '2023-04-18T10:00:00.000Z', file: 'imagen3.jpg'},
+export const getPosts = async (skip = 0, limit = 10) => {
+    try {
+        // Obtener el token del localStorage (para web) o AsyncStorage (para mobile)
+        let token;
+        if (typeof localStorage !== 'undefined') {
+            token = localStorage.getItem('token');
+        }
 
-            ]
+        // Construir la URL con los parámetros de paginación
+        const url = `${API_URL}/posts/?skip=${skip}&limit=${limit}`;
+        
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
         };
-    }catch(error){
+
+        // Agregar el token de autorización si existe
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Procesar los datos para agregar imágenes simuladas
+            const processedData = data.map(post => ({
+                ...post,
+                // Simulamos imágenes aleatorias para los posts
+                file: post.file || getRandomImage()
+            }));
+            
+            return {
+                success: true,
+                data: processedData,
+                hasMore: data.length === limit // Si recibimos menos items que el límite, no hay más datos
+            };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al obtener los posts' }));
+            return { success: false, msg: errorData.detail || 'Error al obtener los posts' };
+        }
+    } catch (error) {
         console.log(error);
-        return {success: false, msg: error.message || 'Error al obtener los posts'};
+        return { success: false, msg: error.message || 'Error al obtener los posts' };
     }
+};
+
+// Función para simular imágenes aleatorias
+const getRandomImage = () => {
+    const images = ['imagen1.jpg', 'imagen2.jpg', 'imagen3.jpg', 'atardecer.jpg'];
+    return images[Math.floor(Math.random() * images.length)];
 };
 
 export const fetchPostDetails = async (id) => {

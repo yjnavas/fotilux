@@ -1,5 +1,5 @@
 import { Alert, StyleSheet, Text, TouchableOpacity, View, Platform, Pressable, FlatList, Image, Dimensions  } from 'react-native'
-import React from 'react'
+import React, { useContext } from 'react'
 import { useRouter } from 'expo-router';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import Header from '../../components/Header';
@@ -8,13 +8,16 @@ import { theme } from '../../constants/theme';
 import Icon from '../../assets/icons';
 import Avatar from '../../components/Avatar';
 import { currentUser } from '../../constants/user'
+import { useAuth } from '../../context/AuthContext'
 
 const Profile = () => {
   const user = currentUser;
   const router = useRouter();
+  const { logout } = useAuth();
+
   return (
     <ScreenWrapper bg={'white'}>
-      <UserHeader user={user} router={router}/>
+      <UserHeader user={user} router={router} logout={logout}/>
     </ScreenWrapper>
   )
 }
@@ -40,10 +43,11 @@ const renderItem = ({ item, router }) => (
 </TouchableOpacity>
 );
 
-const UserHeader = ({user,router}) => {
+const UserHeader = ({user, router, logout}) => {
     const onLogout = () => {
         console.log('logout')
-        router.replace('/login')
+        logout();
+        // router.replace('/login')
     }
 
     const handleLogout = async () => {

@@ -10,9 +10,11 @@ import Input from '../components/Input'
 import Button from '../components/Button'
 import ScreenWrapper from '../components/ScreenWrapper'
 import { loginUser } from '../services/userServices'
+import { useAuth } from '../context/AuthContext'
 
 const login = () => {
   const router = useRouter();
+  const { login: authLogin } = useAuth();
   const emailRef = useRef("");
   const passwordRef = useRef("");
   const [loading, setLoading] = useState(false);
@@ -60,23 +62,18 @@ const login = () => {
         if (response.success) {
           setLoading(false);
           
-          // Guardar token en AsyncStorage para React Native
-          if (Platform.OS !== 'web' && response.data?.access_token) {
-            try {
-              // Nota: En una implementación real, importaríamos AsyncStorage
-              // y lo usaríamos aquí para almacenar el token
-              console.log('Token guardado en AsyncStorage:', response.data.access_token);
-            } catch (storageError) {
-              console.error('Error guardando token:', storageError);
-            }
+          // Usar el contexto de autenticación para guardar el token
+          if (response.data?.access_token) {
+            // Guardar el token usando el contexto de autenticación
+            await authLogin(response.data.access_token);
           }
           
           if (Platform.OS === 'web') {
             const confirm = window.confirm('Inicio de sesión exitoso');
-            if (confirm) router.push('home');
+            if (confirm) router.push('/home');
           } else {
             Alert.alert('Inicio de sesión exitoso', 'Bienvenido a Fotilux');
-            router.push('home');
+            router.push('/home');
           }
         } else {
           setLoading(false);

@@ -11,56 +11,92 @@ import { getPosts } from '../../services/postServices'
 import PostCard from '../../components/PostCard'
 import Loading from '../../components/Loading'
 
-
-var limit = 0;
 const Home = () => {
-
   const user = currentUser;
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [posts, setPosts] = useState([]);
-  useEffect(() => {
-    // Define la función asíncrona dentro del efecto
-    const fetchPosts = async () => {
-      let res = await getPosts(user?.id);
-      console.log('llego',res);
+  const [skip, setSkip] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const limit = 3; // Número de posts a cargar por página
+
+  // Función para cargar los posts iniciales
+  const fetchInitialPosts = async () => {
+    setLoading(true);
+    try {
+      const res = await getPosts(0, limit);
       if (res.success) {
-        console.log('llego',res.data);
         setPosts(res.data);
+        setHasMore(res.hasMore);
+        setSkip(limit); // Preparar para la siguiente carga
+      } else {
+        console.error('Error al cargar posts:', res.msg);
       }
-    };
-  
-    // Ejecuta la función
-    fetchPosts();
-  }, [user?.id]);
-
-  const getMorePosts = async () => {
-    // pentiente hacer que funcion trabaje ocn limit
-    if(!hasMore) return null;
-    // limit = limit + 4;
-
-    // console.log('limit', limit);
-    // let res = await fetchPosts(user?.id, limit);
-    // if(res.success){
-    //   if(post.length==res.data.lenght) setHasmore(false);
-    //   setPosts(res.data);
-    // }
+    } catch (error) {
+      console.error('Error al cargar posts:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLoadMore = () => {
-    setTimeout(() => {
-      setLoading(true);
-    }, 20000);
-    setLoading(false);
-  }
+  // Cargar posts iniciales al montar el componente
+  useEffect(() => {
+    fetchInitialPosts();
+  }, []);
 
-  const onLogout = () => {
-    // llamado a la api
-    limit = limit + 10;
-    console.log('logout')
-    router.replace('/login')
-  }
+  // Función para cargar más posts (infinite scroll)
+  const loadMorePosts = async () => {
+    if (!hasMore || loading) return;
+    
+    setLoading(true);
+    console.log('Cargando más posts desde skip:', skip, 'con límite:', limit);
+    
+    // Simular un pequeño retraso para ver el indicador de carga
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    try {
+      const res = await getPosts(skip, limit);
+      if (res.success) {
+        console.log('Posts cargados:', res.data.length);
+        // Agregar los nuevos posts a los existentes
+        setPosts(prevPosts => [...prevPosts, ...res.data]);
+        setHasMore(res.hasMore);
+        setSkip(prevSkip => prevSkip + limit); // Actualizar skip para la próxima carga
+      } else {
+        console.error('Error al cargar más posts:', res.msg);
+      }
+    } catch (error) {
+      console.error('Error al cargar más posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para manejar el evento onEndReached de FlatList
+  const handleLoadMore = () => {
+    console.log('Reached end, loading more posts...');
+    if (!loading && hasMore) {
+      loadMorePosts();
+    }
+  };
+  
+  // Función para refrescar la lista (pull to refresh)
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchInitialPosts();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // const onLogout = () => {
+    // Usar el contexto de autenticación para cerrar sesión
+    // logout();
+    // console.log('logout');
+    // No es necesario hacer router.replace('/login') porque ya se hace en la función logout del contexto
+  // }
 
   return (
     <ScreenWrapper bg={'white'}>
@@ -90,7 +126,7 @@ const Home = () => {
           data={posts}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listStyle}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={(item, index) => `post-${item.id}-${index}`}
           renderItem={({ item }) => 
             <PostCard
               item={item}
@@ -100,19 +136,28 @@ const Home = () => {
           }
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
-          ListFooterComponent={hasMore ? (
-            <View style={{marginVertical: posts.length == 0 ? 200: 30}}>
-              <Loading/>
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          ListEmptyComponent={!loading && posts.length === 0 ? (
+            <View style={{marginVertical: 100, alignItems: 'center'}}>
+              <Text style={styles.noPosts}>No hay posts disponibles</Text>
             </View>
-            ) : (
-              <View style={{marginVertical: 30}}>
-                <Text style={styles.noPosts}>No hay mas posts</Text>
-              </View>
-            )}
+          ) : null}
+          ListFooterComponent={
+            <View style={{marginVertical: posts.length === 0 ? 200: 30}}>
+              {loading ? (
+                <Loading/>
+              ) : !hasMore && posts.length > 0 ? (
+                <Text style={styles.noPosts}>No hay más posts</Text>
+              ) : null}
+            </View>
+          }
         />
 
       </View>      
-      {/* <Button title="logout" onPress={onLogout} /> */}
+      {/* <View style={{padding: 20}}>
+        <Button title="Cerrar sesión" onPress={onLogout} />
+      </View> */}
     </ScreenWrapper>
   )
 }
