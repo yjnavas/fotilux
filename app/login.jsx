@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Pressable, Alert, Image } from 'react-native'
+import { StyleSheet, Text, View, Pressable, Alert, Image, Platform } from 'react-native'
 import React, { useRef, useState } from 'react'
 import { theme } from '../constants/theme'
 import Icon from '../assets/icons'
@@ -9,24 +9,95 @@ import { wp, hp } from '../helpers/common'
 import Input from '../components/Input'
 import Button from '../components/Button'
 import ScreenWrapper from '../components/ScreenWrapper'
+import { loginUser } from '../services/userServices'
 
 const login = () => {
   const router = useRouter();
   const emailRef = useRef("");
   const passwordRef = useRef("");
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    let isValid = true;
+
+    if (!emailRef.current) {
+      newErrors.email = 'El correo electrónico es requerido';
+      isValid = false;
+    } else if (!validateEmail(emailRef.current)) {
+      newErrors.email = 'Correo electrónico inválido';
+      isValid = false;
+    }
+
+    if (!passwordRef.current) {
+      newErrors.password = 'La contraseña es requerida';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const onSubmit = async () => {
-    if(!emailRef.current || !passwordRef.current){
-      Alert.alert('Login', 'Please fill all the fields');
-      return;
-    }else{
+    if (validateForm()) {
       setLoading(true);
-      setTimeout(() => {
+
+      try {
+        const userData = {
+          mail: emailRef.current,
+          password: passwordRef.current
+        };
+
+        const response = await loginUser(userData);
+        console.log('login response', response);
+
+        if (response.success) {
+          setLoading(false);
+          
+          // Guardar token en AsyncStorage para React Native
+          if (Platform.OS !== 'web' && response.data?.access_token) {
+            try {
+              // Nota: En una implementación real, importaríamos AsyncStorage
+              // y lo usaríamos aquí para almacenar el token
+              console.log('Token guardado en AsyncStorage:', response.data.access_token);
+            } catch (storageError) {
+              console.error('Error guardando token:', storageError);
+            }
+          }
+          
+          if (Platform.OS === 'web') {
+            const confirm = window.confirm('Inicio de sesión exitoso');
+            if (confirm) router.push('home');
+          } else {
+            Alert.alert('Inicio de sesión exitoso', 'Bienvenido a Fotilux');
+            router.push('home');
+          }
+        } else {
+          setLoading(false);
+          if (Platform.OS === 'web') {
+            window.alert(`Error: ${response.msg || 'Credenciales incorrectas'}`);
+          } else {
+            Alert.alert('Error', response.msg || 'Credenciales incorrectas');
+          }
+        }
+      } catch (error) {
         setLoading(false);
-        router.push('home');
-      }, 2000);
+        if (Platform.OS === 'web') {
+          window.alert('Error al conectar con el servidor');
+        } else {
+          Alert.alert('Error', 'Error al conectar con el servidor');
+        }
+        console.log('Login error:', error);
+      }
     }
   };
+
   return (
     <ScreenWrapper bg={theme.colors.background}>
       <StatusBar style="dark" />
@@ -44,7 +115,10 @@ const login = () => {
               placeholder="Ingresa tu email"
               icon={<Icon name="mail" size={20} width={20} color={theme.colors.textLight} />}
               onChangeText={value=>emailRef.current = value}
+              keyboardType="email-address"
+              autoCapitalize="none"
               />
+            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
           </View>
           <View>
             <Text style={styles.label}>Contraseña</Text>
@@ -53,7 +127,9 @@ const login = () => {
               icon={<Icon name="lock" size={20} width={20} color={theme.colors.textLight} />}
               secureTextEntry={true}
               onChangeText={value=>passwordRef.current = value}
+              autoCapitalize="none"
             />
+            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
           </View>
           {/* <Text style={styles.forgotPassword}>
             Forgot password?
@@ -89,6 +165,12 @@ const styles = StyleSheet.create({
     paddingHorizontal : wp(4),
     backgroundColor: theme.colors.background,
     paddingTop: 80,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: hp(3.5),
+    marginTop: 5,
+    paddingLeft: hp(4),
   },
   label: {
     fontSize: hp(4),
