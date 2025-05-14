@@ -1,16 +1,6 @@
-import { Text, Button } from 'react-native'
-import React from 'react'
-import { useRouter } from 'expo-router';
-import ScreenWrapper from '../components/ScreenWrapper'
+import { Redirect } from 'expo-router';
 
-const index = () => {
-	// const router = useRouter();
-  // return (
-  //   <ScreenWrapper>
-  //     <Text>index</Text>
-	// 		<Button title="welcome" onPress={() => router.push('welcome')}/>
-  //   </ScreenWrapper>
-  // )
+console.log('cargando index')
+export default function Index() {
+  return <Redirect href="/login" />
 }
-
-export default index
