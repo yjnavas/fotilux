@@ -49,11 +49,6 @@ export const loginUser = async (userData) => {
         if (response.ok) {
             try {
                 const data = await response.json();
-                // Guardar el token en localStorage para usarlo en futuras peticiones
-                if (data.access_token) {
-                    localStorage.setItem('token', data.access_token);
-                    localStorage.setItem('token_type', data.token_type);
-                }
                 return { success: true, data };
             } catch (jsonError) {
                 console.error('Error parsing JSON:', jsonError);

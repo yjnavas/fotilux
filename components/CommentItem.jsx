@@ -1,43 +1,80 @@
-import { StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native'
-import React from 'react'
+import { StyleSheet, Text, TouchableOpacity, View, Platform, Alert } from 'react-native'
+import React, { useState } from 'react'
 import { theme } from '../constants/theme'
 import Avatar from './Avatar'
 import { hp } from '../helpers/common'
 import moment from 'moment'
 import Icon from '../assets/icons'
 import { useRouter } from 'expo-router'
+import { deleteComment } from '../services/postServices'
 
 const CommentItem = ({
   item,
   canDelete = true,
+  onDeleteSuccess,
 }) => {
   const createdAt = moment(item?.createdAt).format('MMM D');
   const router = useRouter();
-  const handleDelete = () => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!item?.id) {
+      console.error('No se puede eliminar un comentario sin ID');
+      return;
+    }
+
+    const performDelete = async () => {
+      try {
+        setIsDeleting(true);
+        const response = await deleteComment(item.id);
+        setIsDeleting(false);
+
+        if (response.success) {
+          // Llamar a la función de callback para actualizar el estado en el componente padre
+          if (typeof onDeleteSuccess === 'function') {
+            onDeleteSuccess(item.id);
+          }
+          
+          // Mostrar mensaje de éxito
+          if (Platform.OS === 'web') {
+            window.alert("✅ Comentario eliminado con éxito");
+          } else {
+            Alert.alert(
+              'Éxito', 
+              'Comentario eliminado con éxito ✅',
+              [{ text: 'OK' }]
+            );
+          }
+        } else {
+          // Mostrar mensaje de error
+          if (Platform.OS === 'web') {
+            window.alert(`Error: ${response.msg}`);
+          } else {
+            Alert.alert('Error', response.msg);
+          }
+        }
+      } catch (error) {
+        setIsDeleting(false);
+        console.error('Error al eliminar comentario:', error);
+        if (Platform.OS === 'web') {
+          window.alert('Error al eliminar el comentario');
+        } else {
+          Alert.alert('Error', 'Error al eliminar el comentario');
+        }
+      }
+    };
+
+    // Mostrar confirmación antes de eliminar
     if (Platform.OS === 'web') {
       const confirm = window.confirm("¿Desea eliminar el comentario?");
       if (confirm) {
-        window.alert("✅ Se eliminó con éxito");
-        router.push('home');
+        await performDelete();
       }
     } else {
-      inputRef?.current?.clear();
-      commentRef.current = '';
       Alert.alert('Confirmar', "¿Desea eliminar el comentario?", [
         { 
-          text: 'OK', 
-          onPress: () => {
-            Alert.alert(
-              'Éxito', 
-              'Se eliminó con éxito ✅',
-              [
-                { 
-                  text: 'OK', 
-                  onPress: () => router.push('home') 
-                }
-              ]
-            );
-          }, 
+          text: 'Eliminar', 
+          onPress: performDelete, 
           style: 'destructive' 
         },
         { 
@@ -48,7 +85,7 @@ const CommentItem = ({
       ]);
     }
   }
-  console.log('item', item);
+  console.log('comentario', item);
   return (
     <View style={styles.container}>
       <Avatar
@@ -64,14 +101,20 @@ const CommentItem = ({
           </View>
           {
             canDelete && (
-              <TouchableOpacity onPress={handleDelete}>
-                <Icon name="delete" size={20} color={theme.colors.rose} />
+              <TouchableOpacity onPress={handleDelete} disabled={isDeleting}>
+                {isDeleting ? (
+                  <View style={styles.loadingIcon}>
+                    <Text style={{color: theme.colors.rose}}>...</Text>
+                  </View>
+                ) : (
+                  <Icon name="delete" size={20} color={theme.colors.rose} />
+                )}
               </TouchableOpacity>
             )
           }
         </View>
         <Text style={[styles.text, {fontWeight: 'normal'}]}>
-          {item?.comment}
+          {item?.content}
         </Text>  
       </View>
     </View>
@@ -119,5 +162,11 @@ const styles = StyleSheet.create({
     fontSize: hp(3.5),
     fontWeight: theme.fonts.bold,
     color: theme.colors.text,
+  },
+  loadingIcon: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })
