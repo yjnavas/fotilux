@@ -72,97 +72,58 @@ const PostCard = ({
   const [liked, setLiked] = useState(false);
   const [favorited, setFavorited] = useState(false);
 
-  // Initial data fetch when component mounts
+  // Efecto para cargar likes
   useEffect(() => {
-    console.log('useEffect inicial ejecutándose');
+    if (!item?.id) return;
+    fetchLikes();
+  }, [item?.id]);
+
+  // Efecto para cargar comentarios
+  useEffect(() => {
+    if (!item?.id) return;
+    fetchComments();
+  }, [item?.id]);
+
+  // Efecto específico para favoritos
+  useEffect(() => {
+    if (!item?.id) return;
     
-    const loadData = async () => {
-      if (!item?.id) return;
-      
-      console.log(`Cargando datos para post ${item.id}`);
-      
-      // Verificar si hay un estado de favorito guardado
-      const savedFavoriteState = getFavoriteState(item.id);
-      if (savedFavoriteState !== null) {
-        console.log(`Estado de favorito guardado para post ${item.id}:`, savedFavoriteState);
-        setFavorited(savedFavoriteState);
-      }
-      
-      // Establecer estados de carga
-      setLikesLoading(true);
-      setCommentsLoading(true);
-      setLoading(true); // Para favoritos
-      
-      try {
-        // Ejecutar todas las consultas en paralelo y esperar a que terminen
-        const [likesResult, commentsResult, favoritesResult] = await Promise.all([
-          getPostLikes(item.id),
-          getPostComments(item.id),
-          get_post_favorites(item.id)
-        ]);
-        
-        console.log(`Datos cargados para post ${item.id}`);
-        
-        // Procesar resultados de likes
-        if (likesResult.success) {
-          setLikes(likesResult.data || []);
-          
-          // Verificar si el usuario actual ha dado like
-          const userHasLiked = likesResult.data.some(like => like.user_id === currentUser?.id);
-          console.log('likesResult', likesResult)
-          console.log(`Usuario ${currentUser?.id} ha dado like al post ${item.id}: ${userHasLiked}`);
-          
-          // Si se proporciona isLiked directamente, usarlo
-          if (item.isLiked !== undefined) {
-            console.log(`Usando isLiked proporcionado directamente para post ${item.id}:`, item.isLiked);
-            setLiked(item.isLiked);
+    // Verificar primero el estado global de favoritos
+    const savedFavoriteState = getFavoriteState(item.id);
+    if (savedFavoriteState !== null) {
+      console.log(`Estado de favorito guardado para post ${item.id}:`, savedFavoriteState);
+      setFavorited(savedFavoriteState);
+    } else {
+      // Solo si no hay estado guardado, consultamos la API
+      const checkFavoriteStatus = async () => {
+        setLoading(true);
+        try {
+          const response = await get_post_favorites(item.id);
+          if (response.success) {
+            // Si se proporciona isFavorited directamente, usarlo
+            if (item.isFavorited !== undefined) {
+              console.log(`Usando isFavorited proporcionado directamente para post ${item.id}:`, item.isFavorited);
+              setFavorited(item.isFavorited);
+              updateFavoriteState(item.id, item.isFavorited);
+            } else {
+              // Verificar si el post actual está en favoritos del usuario
+              const isPostFavorited = response.data.some(fav => fav.user_id === currentUser?.id);
+              console.log(`Post ${item.id} está en favoritos: ${isPostFavorited}`);
+              setFavorited(isPostFavorited);
+              updateFavoriteState(item.id, isPostFavorited);
+            }
           } else {
-            // Usar el resultado de la API
-            setLiked(userHasLiked);
+            console.error('Error al cargar favoritos:', response.msg);
           }
-        } else {
-          console.error('Error al cargar likes:', likesResult.msg);
+        } catch (error) {
+          console.error('Error al verificar estado de favoritos:', error);
+        } finally {
+          setLoading(false);
         }
-        
-        // Procesar resultados de comentarios
-        if (commentsResult.success) {
-          setComments(commentsResult.data || []);
-        } else {
-          console.error('Error al cargar comentarios:', commentsResult.msg);
-        }
-        
-        // Procesar resultados de favoritos
-        if (favoritesResult.success && savedFavoriteState === null) {
-          console.log('favoritesResult', favoritesResult);
-          // Verificar si el post actual está en favoritos del usuario
-          const isPostFavorited = favoritesResult.data.some(fav => fav.user_id === currentUser?.id);
-          console.log(`Post ${item.id} está en favoritos: ${isPostFavorited}`);
-          
-          // Si se proporciona isFavorited directamente, usarlo
-          if (item.isFavorited !== undefined) {
-            console.log(`Usando isFavorited proporcionado directamente para post ${item.id}:`, item.isFavorited);
-            setFavorited(item.isFavorited);
-            // Actualizar el estado global
-            updateFavoriteState(item.id, item.isFavorited);
-          } else {
-            // Usar el resultado de la API
-            setFavorited(isPostFavorited);
-            // Actualizar el estado global
-            updateFavoriteState(item.id, isPostFavorited);
-          }
-        } else if (!favoritesResult.success) {
-          console.error('Error al cargar favoritos:', favoritesResult.msg);
-        }
-      } catch (error) {
-        console.error('Error al cargar datos del post:', error);
-      } finally {
-        setLikesLoading(false);
-        setCommentsLoading(false);
-        setLoading(false); // Para favoritos
-      }
-    };
-    
-    loadData();
+      };
+      
+      checkFavoriteStatus();
+    }
     
     // Configurar listener para cambios en el estado de favoritos
     const handleFavoriteChange = (event) => {
@@ -180,8 +141,7 @@ const PostCard = ({
     return () => {
       window.removeEventListener(FAVORITE_STATE_CHANGED_EVENT, handleFavoriteChange);
     };
-  }, [item?.id, item?.isLiked, item?.isFavorited, currentUser?.id]);
-  
+  }, [item?.id, item?.isFavorited, currentUser?.id]);
   
   // Listen for global like state changes
   useEffect(() => {
@@ -367,58 +327,37 @@ const PostCard = ({
 
   const onFavorites = async () => {
     if (!currentUser) {
-      Alert.alert('Error', 'Debes iniciar sesión para agregar a favoritos');
+      const message = 'Debes iniciar sesión para agregar a favoritos';
+      Platform.OS === 'web' ? alert(message) : Alert.alert('Error', message);
       return;
     }
 
+    // Actualización optimista de la UI
+    const previousState = favorited;
+    setFavorited(!favorited);
     setLoading(true);
+    
     try {
-      if (!favorited) {
-        // Agregar a favoritos
-        const response = await create_favorite(item.id);
-        if (response.success) {
-          setFavorited(true);
-          // Actualizar el estado global y notificar a otros componentes
-          updateFavoriteState(item.id, true);
-          if (Platform.OS === 'web') {
-            alert('Post agregado a favoritos');
-          } else {
-            Alert.alert('Éxito', 'Post agregado a favoritos');
-          }
-        } else {
-          if (Platform.OS === 'web') {
-            alert(response.msg || 'Error al agregar a favoritos');
-          } else {
-            Alert.alert('Error', response.msg || 'Error al agregar a favoritos');
-          }
-        }
+      const response = await (favorited ? delete_favorite(item.id) : create_favorite(item.id));
+      
+      if (response.success) {
+        // Actualizar estado global
+        updateFavoriteState(item.id, !favorited);
+        
+        const message = favorited ? 'Post eliminado de favoritos' : 'Post agregado a favoritos';
+        Platform.OS === 'web' ? alert(message) : Alert.alert('Éxito', message);
       } else {
-        // Quitar de favoritos
-        const response = await delete_favorite(item.id);
-        if (response.success) {
-          setFavorited(false);
-          // Actualizar el estado global y notificar a otros componentes
-          updateFavoriteState(item.id, false);
-          if (Platform.OS === 'web') {
-            alert('Post eliminado de favoritos');
-          } else {
-            Alert.alert('Éxito', 'Post eliminado de favoritos');
-          }
-        } else {
-          if (Platform.OS === 'web') {
-            alert(response.msg || 'Error al eliminar de favoritos');
-          } else {
-            Alert.alert('Error', response.msg || 'Error al eliminar de favoritos');
-          }
-        }
+        // Revertir cambio si hay error
+        setFavorited(previousState);
+        const errorMsg = response.msg || 'Error al procesar la operación de favoritos';
+        Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Error', errorMsg);
       }
     } catch (error) {
       console.error('Error en onFavorites:', error);
-      if (Platform.OS === 'web') {
-        alert('Error al procesar la operación de favoritos');
-      } else {
-        Alert.alert('Error', 'Error al procesar la operación de favoritos');
-      }
+      // Revertir cambio si hay error
+      setFavorited(previousState);
+      const errorMsg = 'Error al procesar la operación de favoritos';
+      Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Error', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -596,7 +535,7 @@ const PostCard = ({
               <Loading size="small" color={theme.colors.textLight} />
             ) : (
               <TouchableOpacity onPress={onFavorites}>
-                <Icon name="star" size={24} fill={favorited ? theme.colors.yellow : 'transparent'} color={favorited ? theme.colors.yellow : theme.colors.textLight} />
+                <Icon name="star" size={24} fill={favorited ? theme.colors.gold : 'transparent'} color={favorited ? theme.colors.gold : theme.colors.textLight} />
               </TouchableOpacity>
             )
           }
