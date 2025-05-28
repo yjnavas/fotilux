@@ -6,13 +6,12 @@ import { wp, hp } from '../../helpers/common'
 import { theme } from '../../constants/theme'
 import Icon from '../../assets/icons'
 import Avatar from '../../components/Avatar'
-import { currentUser } from '../../constants/user'
-import { getPosts, getPostComments, getPostLikes } from '../../services/postServices'
+import { getPosts } from '../../services/postServices'
 import PostCard from '../../components/PostCard'
 import Loading from '../../components/Loading'
 
 const Home = () => {
-  const user = currentUser;
+  const [user, setUser] = useState(null);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -20,6 +19,31 @@ const Home = () => {
   const [skip, setSkip] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const limit = 3; // Número de posts a cargar por página
+
+
+    // Obtener datos del usuario desde localStorage
+    useEffect(() => {
+      try {
+        const userData = localStorage.getItem('currentUser');
+        console.log('userData from localStorage:', userData);
+        
+        if (userData) {
+          // Parse the JSON string from localStorage
+          const parsedUserData = JSON.parse(userData);
+          setUser(parsedUserData);
+          
+          // This won't show the updated user state immediately due to React's asynchronous state updates
+          console.log('Current user state (won\'t reflect update yet):', user);
+        }
+      } catch (error) {
+        console.error('Error al obtener datos del usuario:', error);
+      }
+    }, []);
+    
+    // Add a separate useEffect to log the user after state updates
+    useEffect(() => {
+      console.log('Updated user state:', user);
+    }, [user]);
 
   // Función para cargar los posts iniciales
   const fetchInitialPosts = async () => {
@@ -44,6 +68,43 @@ const Home = () => {
   useEffect(() => {
     fetchInitialPosts();
   }, []);
+  
+  // Listen for global like state changes
+  useEffect(() => {
+    const handleLikeStateChange = (event) => {
+      if (!event.detail) return;
+      
+      console.log('Global like state change received in home:', event.detail);
+      const { postId, isLiked, count } = event.detail;
+      
+      // Update only the specific post that was liked/unliked
+      setPosts(currentPosts => {
+        return currentPosts.map(post => {
+          // If this is the post that was liked/unliked
+          if (post.id.toString() === postId.toString()) {
+            // Create a copy of the post with updated like information
+            const updatedPost = { ...post };
+            
+            // Update the post with the new like count
+            // Note: The actual like status will be handled by the PostCard component
+            console.log(`Updating post ${postId} with new like count: ${count}`);
+            return updatedPost;
+          }
+          return post;
+        });
+      });
+    };
+    
+    // Add event listener
+    window.addEventListener('globalLikeStateChanged', handleLikeStateChange);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('globalLikeStateChanged', handleLikeStateChange);
+    };
+  }, []);
+
+
 
   // Función para cargar más posts (infinite scroll)
   const loadMorePosts = async () => {
@@ -59,8 +120,17 @@ const Home = () => {
       const res = await getPosts(skip, limit);
       if (res.success) {
         console.log('Posts cargados:', res.data.length);
-        // Agregar los nuevos posts a los existentes
-        setPosts(prevPosts => [...prevPosts, ...res.data]);
+        
+        // Filtrar los posts nuevos para eliminar duplicados
+        const newPosts = res.data.filter(newPost => {
+          // Verificar si este post ya existe en el estado actual
+          return !posts.some(existingPost => existingPost.id === newPost.id);
+        });
+        
+        console.log('Posts únicos a agregar:', newPosts.length);
+        
+        // Agregar solo los posts únicos a los existentes
+        setPosts(prevPosts => [...prevPosts, ...newPosts]);
         setHasMore(res.hasMore);
         setSkip(prevSkip => prevSkip + limit); // Actualizar skip para la próxima carga
       } else {
@@ -90,13 +160,6 @@ const Home = () => {
       setRefreshing(false);
     }
   };
-
-  // const onLogout = () => {
-    // Usar el contexto de autenticación para cerrar sesión
-    // logout();
-    // console.log('logout');
-    // No es necesario hacer router.replace('/login') porque ya se hace en la función logout del contexto
-  // }
 
   return (
     <ScreenWrapper bg={'white'}>
@@ -219,4 +282,5 @@ const styles = StyleSheet.create({
     fontSize: hp(1.2),
     fontWeight: theme.fonts.bold,
   },
+
 })

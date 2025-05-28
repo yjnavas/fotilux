@@ -1,23 +1,98 @@
 import { Alert, StyleSheet, Text, TouchableOpacity, View, Platform, Pressable, FlatList, Image, Dimensions  } from 'react-native'
-import React, { useContext } from 'react'
-import { useRouter } from 'expo-router';
+import React, { useContext, useState, useEffect } from 'react'
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import Header from '../../components/Header';
 import { hp, wp } from '../../helpers/common';
 import { theme } from '../../constants/theme';
 import Icon from '../../assets/icons';
 import Avatar from '../../components/Avatar';
-import { currentUser } from '../../constants/user'
 import { useAuth } from '../../context/AuthContext'
+import { getUser } from '../../services/userServices';
 
 const Profile = () => {
-  const user = currentUser;
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isCurrentUser, setIsCurrentUser] = useState(true);
   const router = useRouter();
   const { logout } = useAuth();
+  const params = useLocalSearchParams();
+  const userId = params.id;
+
+  // Función para cargar datos del usuario
+  const loadUserData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Si tenemos un userId como parámetro, cargamos ese usuario específico
+      if (userId && userId !== null && userId !== undefined) {
+        console.log('Cargando perfil de usuario con ID:', userId);
+        setIsCurrentUser(false);
+        
+        const response = await getUser(userId);
+        if (response.success) {
+          setUser(response.data);
+        } else {
+          setError(response.msg || 'Error al cargar el perfil del usuario');
+        }
+      } else {
+        // Si no hay userId, cargamos el usuario actual desde localStorage
+        console.log('Cargando perfil del usuario actual desde localStorage');
+        setIsCurrentUser(true);
+        
+        const userData = localStorage.getItem('currentUser');
+        if (userData) {
+          const parsedUserData = JSON.parse(userData);
+          setUser(parsedUserData);
+        } else {
+          setError('No se encontró información del usuario');
+        }
+      }
+    } catch (error) {
+      console.error('Error al obtener datos del usuario:', error);
+      setError('Error al cargar el perfil: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cargar datos del usuario al montar el componente o cuando cambie el userId
+  useEffect(() => {
+    loadUserData();
+  }, [userId]);
+
+  // Log para depuración
+  useEffect(() => {
+    console.log('Updated user state in profile:', user);
+    console.log('Is current user profile:', isCurrentUser);
+  }, [user, isCurrentUser]);
 
   return (
     <ScreenWrapper bg={'white'}>
-      <UserHeader user={user} router={router} logout={logout}/>
+      {loading ? (
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+          <Text>Cargando información del usuario...</Text>
+        </View>
+      ) : error ? (
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+          <Text style={{color: theme.colors.rose}}>{error}</Text>
+          <TouchableOpacity 
+            style={{marginTop: 20, padding: 10, backgroundColor: theme.colors.primary, borderRadius: theme.radius.sm}}
+            onPress={() => router.back()}
+          >
+            <Text style={{color: 'white'}}>Volver</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <UserHeader 
+          user={user} 
+          router={router} 
+          logout={logout} 
+          isCurrentUser={isCurrentUser}
+        />
+      )}
     </ScreenWrapper>
   )
 }
@@ -43,7 +118,7 @@ const renderItem = ({ item, router }) => (
 </TouchableOpacity>
 );
 
-const UserHeader = ({user, router, logout}) => {
+const UserHeader = ({user, router, logout, isCurrentUser = true}) => {
     const onLogout = () => {
         console.log('logout')
         logout();
@@ -60,27 +135,16 @@ const UserHeader = ({user, router, logout}) => {
               { text: 'OK', onPress: onLogout, style: 'destructive' },
             ]);
           }
-        // router.replace('/login')
-        // Alert.alert('Confirmar', "Desea salir de la aplicación?", [
-        //     {
-        //         text: 'Cancelar',
-        //         onPress: () => console.log('modal Cancel'),
-        //         style: 'cancel',
-        //     },            
-        //     {
-        //         text: 'OK',
-        //         onPress: () => onLogout(),
-        //         style: 'destructive',
-        //     },
-        // ]);
     }
     return (
     <View style={{ flex: 1, backgroundColor: 'white', paddingHorizontal: wp(2)}}>
         <View>
             <Header title="Perfil" mb={20} backToHome={true}/>
-            <TouchableOpacity style={styles.loggoutButton} onPress={handleLogout}>
-                <Icon name="logout" color={theme.colors.rose}/>
-            </TouchableOpacity>
+            {isCurrentUser && (
+              <TouchableOpacity style={styles.loggoutButton} onPress={handleLogout}>
+                  <Icon name="logout" color={theme.colors.rose}/>
+              </TouchableOpacity>
+            )}
         </View>
         <View style={styles.container}>
             <View style={{gap: 2}}>
@@ -90,26 +154,34 @@ const UserHeader = ({user, router, logout}) => {
                         size={hp(22)}
                         rounded={theme.radius.xxl*1.4}                        
                     />
-                    <Pressable style={styles.editIcon} onPress={()=>router.push('editProfile')}>
-                        <Icon name="edit" strokeWidth={2.5} size={20} />
-                    </Pressable>
+                    {isCurrentUser && (
+                      <Pressable style={styles.editIcon} onPress={()=>router.push('editProfile')}>
+                          <Icon name="edit" strokeWidth={2.5} size={20} />
+                      </Pressable>
+                    )}
                 </View>
                 <View style={{alignItems: 'center', gap: 4}}>
                     <Text style={styles.userName}>{user.name}</Text>
                 </View>
+                {user && user.user_name && (
                 <View style={{alignItems: 'center', gap: 4}}>
-                  <Text style={styles.textUsername}>{user && user.username}</Text>
+                  <Text style={styles.textUsername}>{user.user_name}</Text>
                 </View>
+                )}
                 {/* email, phone, bio */}
-                {/* <View style={{gap: 10}}>
+                {
+                    user && user.email && ( 
+                <View style={{gap: 10, alignItems: 'center', width: '100%'}}>
                     <View style={styles.info}>
                         <Icon name="mail" size={18} width={18} color={theme.colors.textLight} />
                         <Text style={styles.infoText}>{user && user.email}</Text>
                     </View>
                 </View>
+                    )
+                }
                 {
                     user && user.phone && (
-                        <View style={styles.info}>
+                        <View style={[styles.info, {alignSelf: 'center'}]}>
                             <Icon name="call" size={18} width={18} color={theme.colors.textLight} />
                             <Text style={styles.infoText}>{user && user.phone}</Text>
                         </View>
@@ -117,15 +189,15 @@ const UserHeader = ({user, router, logout}) => {
                 }
                 {
                     user && user.address && (
-                        <View style={styles.info}>
+                        <View style={[styles.info, {alignSelf: 'center'}]}>
                             <Icon name="location" size={18} width={18} color={theme.colors.textLight} />
                             <Text style={styles.infoText}>{user && user.address}</Text>
                         </View>
                     )
-                } */}
+                }
                 {
                     user && user.bio && (
-                        <View style={styles.info}>
+                        <View style={[styles.info, {alignSelf: 'center'}]}>
                             <Text style={styles.infoText}>{user && user.bio}</Text>
                         </View>
                     )
@@ -228,7 +300,9 @@ const styles = StyleSheet.create({
     info: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 10,
+        textAlign: 'center',
     },
     descText: {
       fontSize: hp(4),

@@ -80,9 +80,14 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('token_type');
         localStorage.removeItem('currentUser');
+        
+        // Limpiar estado de likes almacenado en localStorage
+        localStorage.removeItem('globalLikeState');
+        console.log('Estado de likes limpiado correctamente');
       } else {
         // Para React Native:
         // await AsyncStorage.removeItem('token');
+        // await AsyncStorage.removeItem('globalLikeState');
         console.log('Token eliminado');
       }
       setIsAuthenticated(false);

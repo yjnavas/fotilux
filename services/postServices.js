@@ -332,3 +332,76 @@ export const deleteComment = async (commentId) => {
         return { success: false, msg: error.message || 'Error al eliminar el comentario' };
     }
 };
+
+// Función para agregar un like a un post
+export const addLike = async (postId) => {
+    try {
+        // Obtener el token del localStorage
+        let token;
+        if (typeof localStorage !== 'undefined') {
+            token = localStorage.getItem('token');
+        }
+        
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        const url = `${API_URL}/likes/${postId}`;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json().catch(() => ({}));
+            return { success: true, data, msg: 'Like agregado correctamente' };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al agregar like' }));
+            return { success: false, msg: errorData.detail || 'Error al agregar like' };
+        }
+    } catch (error) {
+        console.error('Error in addLike:', error);
+        return { success: false, msg: error.message || 'Error al agregar like' };
+    }
+};
+
+// Función para quitar un like de un post
+export const removeLike = async (postId) => {
+    try {
+        // Obtener el token del localStorage
+        let token;
+        if (typeof localStorage !== 'undefined') {
+            token = localStorage.getItem('token');
+        }
+        
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        const url = `${API_URL}/likes/${postId}`;
+        
+        const response = await fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            return { success: true, msg: 'Like eliminado correctamente' };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al quitar like' }));
+            return { success: false, msg: errorData.detail || 'Error al quitar like' };
+        }
+    } catch (error) {
+        console.error('Error in removeLike:', error);
+        return { success: false, msg: error.message || 'Error al quitar like' };
+    }
+};

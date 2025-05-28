@@ -68,13 +68,122 @@ const PostCard = ({
   const [likesLoading, setLikesLoading] = useState(false);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [liked, setLiked] = useState(false);
 
+  // Initial data fetch when component mounts
   useEffect(() => {
-    if (item?.id) {
-      fetchLikes();
-      fetchComments();
-    }
+    console.log('useEffect inicial ejecutándose');
+    
+    const loadData = async () => {
+      if (!item?.id) return;
+      
+      console.log(`Cargando datos para post ${item.id}`);
+      
+      // Establecer estados de carga
+      setLikesLoading(true);
+      setCommentsLoading(true);
+      
+      try {
+        // Ejecutar ambas consultas en paralelo y esperar a que ambas terminen
+        const [likesResult, commentsResult] = await Promise.all([
+          getPostLikes(item.id),
+          getPostComments(item.id)
+        ]);
+        
+        console.log(`Datos cargados para post ${item.id}`);
+        
+        // Procesar resultados de likes
+        if (likesResult.success) {
+          setLikes(likesResult.data || []);
+          
+          // Verificar si el usuario actual ha dado like
+          const userHasLiked = likesResult.data.some(like => like.user_id === currentUser?.id);
+          console.log('likesResult', likesResult)
+          console.log(`Usuario ${currentUser?.id} ha dado like al post ${item.id}: ${userHasLiked}`);
+          
+          // Si se proporciona isLiked directamente, usarlo
+          if (item.isLiked !== undefined) {
+            console.log(`Usando isLiked proporcionado directamente para post ${item.id}:`, item.isLiked);
+            setLiked(item.isLiked);
+          } else {
+            // Usar el resultado de la API
+            setLiked(userHasLiked);
+          }
+        } else {
+          console.error('Error al cargar likes:', likesResult.msg);
+        }
+        
+        // Procesar resultados de comentarios
+        if (commentsResult.success) {
+          setComments(commentsResult.data || []);
+        } else {
+          console.error('Error al cargar comentarios:', commentsResult.msg);
+        }
+      } catch (error) {
+        console.error('Error al cargar datos del post:', error);
+      } finally {
+        setLikesLoading(false);
+        setCommentsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [item?.id, item?.isLiked, currentUser?.id]);
+  
+  
+  // Listen for global like state changes
+  useEffect(() => {
+    if (!item?.id) return;
+    
+    const handleLikeStateChange = (event) => {
+      try {
+        // If this event is for this specific post, update immediately
+        if (event && event.detail && event.detail.postId === item.id.toString()) {
+          console.log(`Updating like state for post ${item.id} from event:`, event.detail);
+          setLiked(event.detail.isLiked);
+          return;
+        }
+        
+        // Otherwise check global state
+        checkGlobalLikeState(item.id.toString());
+      } catch (error) {
+        console.error('Error handling like state change:', error);
+      }
+    };
+    
+    // Add event listener
+    window.addEventListener('globalLikeStateChanged', handleLikeStateChange);
+    
+    // Check initial state
+    checkGlobalLikeState(item.id.toString());
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('globalLikeStateChanged', handleLikeStateChange);
+    };
   }, [item?.id]);
+  
+  // Function to check global like state
+  const checkGlobalLikeState = (postId) => {
+    try {
+      const globalLikeState = localStorage.getItem('globalLikeState') || '{}';
+      const likeStates = JSON.parse(globalLikeState);
+      const postState = likeStates[postId];
+      
+      if (postState) {
+        console.log(`Found global like state for post ${postId}:`, postState);
+        // Update local state based on global state
+        setLiked(postState.isLiked);
+        fetchLikes();
+      } else if (currentUser) {
+        // If no global state, check if the current user has liked this post
+        const userLiked = likes.some(like => like.userId === currentUser.id);
+        setLiked(userLiked);
+      }
+    } catch (error) {
+      console.error('Error checking global like state:', error);
+    }
+  };
 
   const fetchLikes = async () => {
     if (!item?.id) return;
@@ -92,6 +201,42 @@ const PostCard = ({
     } finally {
       setLikesLoading(false);
     }
+  };
+  
+  // Function to update global like state
+  const updateGlobalLikeState = (postId, isLiked, count) => {
+    try {
+      // Ensure postId is a string for consistency
+      const postIdStr = postId.toString();
+      
+      // Get current global like state
+      const globalLikeStateString = localStorage.getItem('globalLikeState') || '{}';
+      const globalLikeState = JSON.parse(globalLikeStateString);
+      
+      // Update state for this post
+      globalLikeState[postIdStr] = {
+        isLiked: isLiked,
+        count: count,
+        timestamp: Date.now()
+      };
+      
+      // Save updated global like state back to localStorage
+      localStorage.setItem('globalLikeState', JSON.stringify(globalLikeState));
+    } catch (error) {
+      console.error('Error updating global like state:', error);
+    }
+  };
+  
+  // Function to notify all components about like state change
+  const notifyLikeStateChange = (postId, isLiked, count) => {
+    // Update global state
+    updateGlobalLikeState(postId, isLiked, count);
+    
+    // Dispatch event
+    const event = new CustomEvent('globalLikeStateChanged', {
+      detail: { postId, isLiked, count }
+    });
+    window.dispatchEvent(event);
   };
 
   const fetchComments = async () => {
@@ -117,29 +262,52 @@ const PostCard = ({
     if(isDetail) {
       setShowDropdown(!showDropdown);
     } else {
-      console.log('estamos tocando el ver mas')
       router.push({pathname: 'postDetails', params: {id: item?.id}});
     }
   }
 
   const onLike = async () => {
-    if (!item?.id || likesLoading) return;
+    if (!item?.id || likesLoading || !currentUser) return;
     
+    // Store current state for potential rollback
+    const previousLikedState = liked;
+    const previousLikes = [...likes];
+    
+    // Calculate new like count
+    const newLikeCount = liked ? likes.length - 1 : likes.length + 1;
+    
+    // Toggle like state optimistically for better UX
+    const newLikedState = !liked;
+    setLiked(newLikedState);
     setLikesLoading(true);
+    
     try {
-      const userLiked = likes.some(like => like.userId === currentUser.id);
-      
-      if (userLiked) {
-        setLikes(prevLikes => prevLikes.filter(like => like.userId !== currentUser.id));
-        await removeLike(item.id);
-      } else {
+      let response;
+      if (newLikedState) {
+        // Add like
         const newLike = { userId: currentUser.id, postId: item.id };
         setLikes(prevLikes => [...prevLikes, newLike]);
-        await addLike(item.id);
+        response = await addLike(item.id);
+        console.log('Add like response:', response);
+      } else {
+        // Remove like
+        setLikes(prevLikes => prevLikes.filter(like => like.userId !== currentUser.id));
+        response = await removeLike(item.id);
+        console.log('Remove like response:', response);
+      }
+      
+      if (response && response.success) {
+        // Notify all components about like state change
+        notifyLikeStateChange(item.id, newLikedState, newLikeCount);
+      } else {
+        // If API call failed, revert UI state and likes array
+        setLiked(previousLikedState);
+        setLikes(previousLikes);
       }
     } catch (error) {
-      console.error('Error al gestionar like:', error);
-      fetchLikes();
+      // Revert UI state and likes array if there was an error
+      setLiked(previousLikedState);
+      setLikes(previousLikes);
     } finally {
       setLikesLoading(false);
     }
@@ -169,7 +337,7 @@ const PostCard = ({
   }
 
   const createdAt = moment(item?.createdAt).format('MMM D');
-  const liked = likes.some(like => like.userId === currentUser.id);
+  // We're now using the liked state variable instead of calculating it here
   const showDelete = item?.userId === currentUser?.id;
 
   const handleDelete = async () => {
@@ -239,7 +407,10 @@ const PostCard = ({
     <View style={[styles.container, hasShadow && shadowStyles]}>
       <View style={styles.header}>
         {/* user info and post time */}
-        <View style={styles.userInfo}>
+        <TouchableOpacity 
+          style={styles.userInfo} 
+          onPress={() => router.push({pathname: 'profile', params: {id: item?.user_id === currentUser?.id ? null : item?.user_id}})}
+        >
           <Avatar
             size={hp(10)}
             uri={item?.user?.image}
@@ -249,7 +420,7 @@ const PostCard = ({
             <Text style={styles.username}>{item?.name}</Text>
             <Text style={styles.postTime}>{createdAt}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
         {
           isDetail && item?.userId === currentUser?.id && (
             <View>
@@ -320,7 +491,7 @@ const PostCard = ({
           </Text>
         </View>
         <View style={styles.footerButtons}>
-          <TouchableOpacity onPress={openPostDetails}>
+          <TouchableOpacity onPress={isDetail ? null : openPostDetails} disabled={isDetail}>
             {commentsLoading ? (
               <Loading size="small" color={theme.colors.textLight} />
             ) : (
@@ -337,13 +508,10 @@ const PostCard = ({
               <Loading size="small" color={theme.colors.textLight} />
             ) : (
               <TouchableOpacity onPress={onShare}>
-                <Icon name="share" size={24} color={theme.colors.textLight} />
+                <Icon name="star" size={24} color={theme.colors.textLight} />
               </TouchableOpacity>
             )
           }
-          <Text style={styles.count}>
-            {0}
-          </Text>
         </View>
         </View>
     </View>
