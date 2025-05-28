@@ -120,8 +120,17 @@ const Home = () => {
       const res = await getPosts(skip, limit);
       if (res.success) {
         console.log('Posts cargados:', res.data.length);
-        // Agregar los nuevos posts a los existentes
-        setPosts(prevPosts => [...prevPosts, ...res.data]);
+        
+        // Filtrar los posts nuevos para eliminar duplicados
+        const newPosts = res.data.filter(newPost => {
+          // Verificar si este post ya existe en el estado actual
+          return !posts.some(existingPost => existingPost.id === newPost.id);
+        });
+        
+        console.log('Posts únicos a agregar:', newPosts.length);
+        
+        // Agregar solo los posts únicos a los existentes
+        setPosts(prevPosts => [...prevPosts, ...newPosts]);
         setHasMore(res.hasMore);
         setSkip(prevSkip => prevSkip + limit); // Actualizar skip para la próxima carga
       } else {

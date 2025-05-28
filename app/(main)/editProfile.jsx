@@ -11,60 +11,110 @@ import Input from '../../components/Input'
 import Button from '../../components/Button'
 import { useRouter } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
+import { updateUser } from '../../services/userServices'
 import { currentUser } from '../../constants/user'
 
 const EditProfile = () => {
-
     const [loading, setLoading] = useState(false);
-
+    const [error, setError] = useState(null);
     const router = useRouter();
-
     const [user, setUser] = useState({
       name: currentUser.name || '',
       address: currentUser.address || '',
-      email: currentUser.email || '',
+      user_name: currentUser.user_name || '',
       phone: currentUser.phone || '',
       bio: currentUser.bio || '',
       image: currentUser.image || null,
     });
+    
+    useEffect(() => {
+      try {
+        const userData = localStorage.getItem('currentUser');
+        if (userData) {
+          const parsedUserData = JSON.parse(userData);
+          setUser({
+            id: parsedUserData.id,
+            name: parsedUserData.name || '',
+            address: parsedUserData.address || '',
+            user_name: parsedUserData.user_name || '',
+            phone: parsedUserData.phone || '',
+            bio: parsedUserData.bio || '',
+            image: parsedUserData.image || null,
+          });
+        }
+      } catch (error) {
+        console.error('Error al obtener datos del usuario:', error);
+      }
+    }, []);
 
     const onSubmit = async () => {
-      let UserData = {...user};
-      let { name, address, email, phone, bio, image } = UserData;
-      if(!name || !address || !email || !phone || !bio || !image){
+      setError(null);
+      let userData = {...user};
+      let { name, address, user_name, phone, bio, image } = userData;
+      
+      if(!name) {
+        setError("Por favor rellene al menos el nombre");
         if (Platform.OS === 'web') {
-            const confirm = window.confirm("Por favor rellene todos los campos");
-            if (confirm) onLogout();
-          } else {
-            Alert.alert('Error', "Por favor rellene todos los campos", [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'OK', onPress: onLogout, style: 'destructive' },
-            ]);
-          }
-      }
-      setLoading(true);
-      // if( typeof image === 'object'){
-      //   //upload image 
-      //   let imageRes = await uploadFile('profiles', image.uri);
-      //   if(imageRes.success){
-      //     UserData.image = imageRes.data;
-      //   }
-      //   else{
-      //     UserData.image = null;
-      //   }
-      // }
-      // const res = await updateUser(currentUser?.id, UserData);
-      setLoading(false);
-      // if(res.succes){
-      if(true){
-        if (Platform.OS === 'web') {
-          const confirm = window.confirm("Datos actualizados correctamente");
-          if (confirm) router.push('profile');
+          window.alert("Por favor rellene al menos el nombre");
         } else {
-          Alert.alert('Exito', "Datos actualizados correctamente", [
-            { text: 'OK', onPress: router.push('profile'), style: 'destructive' },
+          Alert.alert('Error', "Por favor rellene al menos el nombre", [
+            { text: 'OK', style: 'default' },
           ]);
         }
+        return;
+      }
+      
+      setLoading(true);
+      
+      try {
+        if(typeof image === 'object' && image !== null) {
+          let imageRes = await uploadFile('profiles', image.uri);
+          if(imageRes.success) {
+            userData.image = imageRes.data;
+          } else {
+            userData.image = null;
+          }
+        }
+        
+        const userDataStr = localStorage.getItem('currentUser');
+        let userId = null;
+        
+        if (userDataStr) {
+          const currentUserData = JSON.parse(userDataStr);
+          userId = currentUserData.id;
+        }
+        
+        if (!userId) {
+          throw new Error('No se pudo obtener el ID del usuario');
+        }
+        
+        const res = await updateUser(userId, userData);
+        
+        if(res.success) {
+          if (Platform.OS === 'web') {
+            window.alert("Datos actualizados correctamente");
+            router.push('profile');
+          } else {
+            Alert.alert('Éxito', "Datos actualizados correctamente", [
+              { text: 'OK', onPress: () => router.push('profile') },
+            ]);
+          }
+        } else {
+          throw new Error(res.msg || 'Error al actualizar los datos');
+        }
+      } catch (error) {
+        console.error('Error al actualizar perfil:', error);
+        setError(error.message || 'Error al actualizar el perfil');
+        
+        if (Platform.OS === 'web') {
+          window.alert(error.message || 'Error al actualizar el perfil');
+        } else {
+          Alert.alert('Error', error.message || 'Error al actualizar el perfil', [
+            { text: 'OK', style: 'default' },
+          ]);
+        }
+      } finally {
+        setLoading(false);
       }
     }
     const onPickImage = async () => {
@@ -84,8 +134,9 @@ const EditProfile = () => {
         }
       
     }
-    // let imageSource = user.image && typeof user.image === 'object' ? user.image.uri : getUserImageSrc(currentUser.image);
-    let imageSource = user.image ? getUserImageSrc(currentUser.image) : getUserImageSrc();
+    let imageSource = user.image ? 
+      (typeof user.image === 'object' ? { uri: user.image.uri } : getUserImageSrc(user.image)) 
+      : getUserImageSrc();
   return (
     <ScreenWrapper bg={'white'}>
       <View style={styles.container}>
@@ -107,6 +158,12 @@ const EditProfile = () => {
                 placeholder="Ingresa tu nombre"
                 value={user.name}
                 onChangeText={value => setUser({...user, name: value})}
+              />
+              <Input
+                icon={<Icon name="mail"/>}
+                placeholder="Ingresa tu nombre de usuario"
+                value={user.user_name}
+                onChangeText={value => setUser({...user, user_name: value})}
               />
               <Input
                 icon={<Icon name="call"/>}
