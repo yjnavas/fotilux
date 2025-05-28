@@ -16,6 +16,8 @@ import { downloadFile, getUserImageSrc } from '../services/imageServices'
 import Loading from './Loading'
 import { getPostComments, getPostLikes, addLike, removeLike, deletePost, create_favorite, delete_favorite, get_post_favorites } from '../services/postServices'
 import { updateFavoriteState, getFavoriteState, addFavoriteStateListener, FAVORITE_STATE_CHANGED_EVENT } from '../utils/favoriteStateManager'
+import { updateLikeState, getLikeState, addLikeStateListener, LIKE_STATE_CHANGED_EVENT } from '../utils/likeStateManager'
+import { updateCommentState, getCommentState, addCommentStateListener, COMMENT_STATE_CHANGED_EVENT } from '../utils/commentStateManager'
 
 const images = {
   'imagen1.jpg': imagen1,
@@ -75,13 +77,74 @@ const PostCard = ({
   // Efecto para cargar likes
   useEffect(() => {
     if (!item?.id) return;
-    fetchLikes();
+    
+    // Verificar primero el estado global de likes
+    const savedLikeState = getLikeState(item.id);
+    if (savedLikeState) {
+      console.log(`Estado de like guardado para post ${item.id}:`, savedLikeState);
+      setLiked(savedLikeState.isLiked);
+      setLikes(new Array(savedLikeState.count || 0).fill({})); // Crear array con la cantidad correcta
+    } else {
+      // Si no hay estado guardado, cargar desde la API
+      fetchLikes();
+    }
+    
+    // Configurar listener para cambios en el estado de likes
+    const handleLikeChange = (event) => {
+      const { postId, isLiked, count } = event.detail;
+      if (postId === item?.id?.toString()) {
+        console.log(`Recibido evento de cambio de like para post ${postId}:`, isLiked, count);
+        setLiked(isLiked);
+        setLikes(new Array(count || 0).fill({}));
+      }
+    };
+    
+    // Agregar event listener
+    window.addEventListener(LIKE_STATE_CHANGED_EVENT, handleLikeChange);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener(LIKE_STATE_CHANGED_EVENT, handleLikeChange);
+    };
   }, [item?.id]);
 
   // Efecto para cargar comentarios
   useEffect(() => {
     if (!item?.id) return;
-    fetchComments();
+    
+    // Verificar primero el estado global de comentarios
+    const savedCommentState = getCommentState(item.id);
+    if (savedCommentState) {
+      console.log(`Estado de comentarios guardado para post ${item.id}:`, savedCommentState);
+      if (savedCommentState.comments && savedCommentState.comments.length > 0) {
+        setComments(savedCommentState.comments);
+      } else if (savedCommentState.count > 0) {
+        // Si solo tenemos el contador pero no los comentarios completos, cargar desde API
+        fetchComments();
+      } else {
+        setComments([]);
+      }
+    } else {
+      // Si no hay estado guardado, cargar desde la API
+      fetchComments();
+    }
+    
+    // Configurar listener para cambios en el estado de comentarios
+    const handleCommentChange = (event) => {
+      const { postId, comments } = event.detail;
+      if (postId === item?.id?.toString()) {
+        console.log(`Recibido evento de cambio de comentarios para post ${postId}:`, comments.length);
+        setComments(comments || []);
+      }
+    };
+    
+    // Agregar event listener
+    window.addEventListener(COMMENT_STATE_CHANGED_EVENT, handleCommentChange);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener(COMMENT_STATE_CHANGED_EVENT, handleCommentChange);
+    };
   }, [item?.id]);
 
   // Efecto específico para favoritos
@@ -143,59 +206,7 @@ const PostCard = ({
     };
   }, [item?.id, item?.isFavorited, currentUser?.id]);
   
-  // Listen for global like state changes
-  useEffect(() => {
-    if (!item?.id) return;
-    
-    const handleLikeStateChange = (event) => {
-      try {
-        // If this event is for this specific post, update immediately
-        if (event && event.detail && event.detail.postId === item.id.toString()) {
-          console.log(`Updating like state for post ${item.id} from event:`, event.detail);
-          setLiked(event.detail.isLiked);
-          return;
-        }
-        
-        // Otherwise check global state
-        checkGlobalLikeState(item.id.toString());
-      } catch (error) {
-        console.error('Error handling like state change:', error);
-      }
-    };
-    
-    // Add event listener
-    window.addEventListener('globalLikeStateChanged', handleLikeStateChange);
-    
-    // Check initial state
-    checkGlobalLikeState(item.id.toString());
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('globalLikeStateChanged', handleLikeStateChange);
-    };
-  }, [item?.id]);
-  
-  // Function to check global like state
-  const checkGlobalLikeState = (postId) => {
-    try {
-      const globalLikeState = localStorage.getItem('globalLikeState') || '{}';
-      const likeStates = JSON.parse(globalLikeState);
-      const postState = likeStates[postId];
-      
-      if (postState) {
-        console.log(`Found global like state for post ${postId}:`, postState);
-        // Update local state based on global state
-        setLiked(postState.isLiked);
-        fetchLikes();
-      } else if (currentUser) {
-        // If no global state, check if the current user has liked this post
-        const userLiked = likes.some(like => like.userId === currentUser.id);
-        setLiked(userLiked);
-      }
-    } catch (error) {
-      console.error('Error checking global like state:', error);
-    }
-  };
+
 
   const fetchLikes = async () => {
     if (!item?.id) return;
@@ -204,7 +215,15 @@ const PostCard = ({
     try {
       const res = await getPostLikes(item.id);
       if (res.success) {
-        setLikes(res.data || []);
+        const likesData = res.data || [];
+        setLikes(likesData);
+        
+        // Verificar si el usuario actual ha dado like
+        const userHasLiked = likesData.some(like => like.user_id === currentUser?.id);
+        setLiked(userHasLiked);
+        
+        // Actualizar el estado global
+        updateLikeState(item.id, userHasLiked, likesData.length);
       } else {
         console.error('Error al cargar likes:', res.msg);
       }
@@ -214,42 +233,6 @@ const PostCard = ({
       setLikesLoading(false);
     }
   };
-  
-  // Function to update global like state
-  const updateGlobalLikeState = (postId, isLiked, count) => {
-    try {
-      // Ensure postId is a string for consistency
-      const postIdStr = postId.toString();
-      
-      // Get current global like state
-      const globalLikeStateString = localStorage.getItem('globalLikeState') || '{}';
-      const globalLikeState = JSON.parse(globalLikeStateString);
-      
-      // Update state for this post
-      globalLikeState[postIdStr] = {
-        isLiked: isLiked,
-        count: count,
-        timestamp: Date.now()
-      };
-      
-      // Save updated global like state back to localStorage
-      localStorage.setItem('globalLikeState', JSON.stringify(globalLikeState));
-    } catch (error) {
-      console.error('Error updating global like state:', error);
-    }
-  };
-  
-  // Function to notify all components about like state change
-  const notifyLikeStateChange = (postId, isLiked, count) => {
-    // Update global state
-    updateGlobalLikeState(postId, isLiked, count);
-    
-    // Dispatch event
-    const event = new CustomEvent('globalLikeStateChanged', {
-      detail: { postId, isLiked, count }
-    });
-    window.dispatchEvent(event);
-  };
 
   const fetchComments = async () => {
     if (!item?.id) return;
@@ -258,7 +241,11 @@ const PostCard = ({
     try {
       const res = await getPostComments(item.id);
       if (res.success) {
-        setComments(res.data || []);
+        const commentsData = res.data || [];
+        setComments(commentsData);
+        
+        // Actualizar el estado global
+        updateCommentState(item.id, commentsData);
       } else {
         console.error('Error al cargar comentarios:', res.msg);
       }
@@ -309,8 +296,8 @@ const PostCard = ({
       }
       
       if (response && response.success) {
-        // Notify all components about like state change
-        notifyLikeStateChange(item.id, newLikedState, newLikeCount);
+        // Actualizar el estado global usando el nuevo state manager
+        updateLikeState(item.id, newLikedState, newLikeCount);
       } else {
         // If API call failed, revert UI state and likes array
         setLiked(previousLikedState);

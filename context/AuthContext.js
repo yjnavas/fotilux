@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import { Platform } from 'react-native';
 import { loginUser } from '../services/userServices';
 import { initializeFavoriteStates, clearFavoriteStates } from '../utils/favoriteStateManager';
+import { clearLikeStates } from '../utils/likeStateManager';
+import { clearCommentStates } from '../utils/commentStateManager';
 
 // Crear el contexto
 const AuthContext = createContext();
@@ -106,17 +108,21 @@ export const AuthProvider = ({ children }) => {
         
         // Limpiar estado de likes almacenado en localStorage
         localStorage.removeItem('globalLikeState');
-        console.log('Estado de likes limpiado correctamente');
+        localStorage.removeItem('globalCommentState');
+        console.log('Estados de likes y comentarios limpiados correctamente');
       } else {
         // Para React Native:
         // await AsyncStorage.removeItem('token');
         // await AsyncStorage.removeItem('globalLikeState');
+        // await AsyncStorage.removeItem('globalCommentState');
         console.log('Token eliminado');
       }
       
-      // Limpiar el estado de favoritos
+      // Limpiar todos los estados globales
       clearFavoriteStates();
-      console.log('Estado de favoritos limpiado correctamente');
+      clearLikeStates();
+      clearCommentStates();
+      console.log('Estados globales limpiados correctamente');
       
       setIsAuthenticated(false);
       router.replace('/login');
