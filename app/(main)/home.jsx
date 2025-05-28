@@ -6,13 +6,12 @@ import { wp, hp } from '../../helpers/common'
 import { theme } from '../../constants/theme'
 import Icon from '../../assets/icons'
 import Avatar from '../../components/Avatar'
-import { currentUser } from '../../constants/user'
 import { getPosts } from '../../services/postServices'
 import PostCard from '../../components/PostCard'
 import Loading from '../../components/Loading'
 
 const Home = () => {
-  const user = currentUser;
+  const [user, setUser] = useState(null);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -20,6 +19,31 @@ const Home = () => {
   const [skip, setSkip] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const limit = 3; // Número de posts a cargar por página
+
+
+    // Obtener datos del usuario desde localStorage
+    useEffect(() => {
+      try {
+        const userData = localStorage.getItem('currentUser');
+        console.log('userData from localStorage:', userData);
+        
+        if (userData) {
+          // Parse the JSON string from localStorage
+          const parsedUserData = JSON.parse(userData);
+          setUser(parsedUserData);
+          
+          // This won't show the updated user state immediately due to React's asynchronous state updates
+          console.log('Current user state (won\'t reflect update yet):', user);
+        }
+      } catch (error) {
+        console.error('Error al obtener datos del usuario:', error);
+      }
+    }, []);
+    
+    // Add a separate useEffect to log the user after state updates
+    useEffect(() => {
+      console.log('Updated user state:', user);
+    }, [user]);
 
   // Función para cargar los posts iniciales
   const fetchInitialPosts = async () => {

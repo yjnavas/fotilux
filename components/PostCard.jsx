@@ -72,22 +72,63 @@ const PostCard = ({
 
   // Initial data fetch when component mounts
   useEffect(() => {
-    if (item?.id) {
-      fetchLikes();
-      fetchComments();
+    console.log('useEffect inicial ejecutándose');
+    
+    const loadData = async () => {
+      if (!item?.id) return;
       
-      // Si se proporciona isLiked directamente, usarlo
-      if (item.isLiked !== undefined) {
-        console.log(`Usando isLiked proporcionado directamente para post ${item.id}:`, item.isLiked);
-        const isLikedInApi = likes.some(like => like.userId === currentUser.id);
-        // setLiked(isLikedInApi);
-        setLiked(item.isLiked && isLikedInApi);
-      } else {
-        // Check global like state immediately on mount
-        checkGlobalLikeState(item.id.toString());
+      console.log(`Cargando datos para post ${item.id}`);
+      
+      // Establecer estados de carga
+      setLikesLoading(true);
+      setCommentsLoading(true);
+      
+      try {
+        // Ejecutar ambas consultas en paralelo y esperar a que ambas terminen
+        const [likesResult, commentsResult] = await Promise.all([
+          getPostLikes(item.id),
+          getPostComments(item.id)
+        ]);
+        
+        console.log(`Datos cargados para post ${item.id}`);
+        
+        // Procesar resultados de likes
+        if (likesResult.success) {
+          setLikes(likesResult.data || []);
+          
+          // Verificar si el usuario actual ha dado like
+          const userHasLiked = likesResult.data.some(like => like.user_id === currentUser?.id);
+          console.log('likesResult', likesResult)
+          console.log(`Usuario ${currentUser?.id} ha dado like al post ${item.id}: ${userHasLiked}`);
+          
+          // Si se proporciona isLiked directamente, usarlo
+          if (item.isLiked !== undefined) {
+            console.log(`Usando isLiked proporcionado directamente para post ${item.id}:`, item.isLiked);
+            setLiked(item.isLiked);
+          } else {
+            // Usar el resultado de la API
+            setLiked(userHasLiked);
+          }
+        } else {
+          console.error('Error al cargar likes:', likesResult.msg);
+        }
+        
+        // Procesar resultados de comentarios
+        if (commentsResult.success) {
+          setComments(commentsResult.data || []);
+        } else {
+          console.error('Error al cargar comentarios:', commentsResult.msg);
+        }
+      } catch (error) {
+        console.error('Error al cargar datos del post:', error);
+      } finally {
+        setLikesLoading(false);
+        setCommentsLoading(false);
       }
-    }
-  }, [item?.id, item?.isLiked]);
+    };
+    
+    loadData();
+  }, [item?.id, item?.isLiked, currentUser?.id]);
   
   
   // Listen for global like state changes
