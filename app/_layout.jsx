@@ -3,7 +3,12 @@ import { Stack } from 'expo-router'
 import { LogBox } from 'react-native'
 import { AuthProvider } from '../context/AuthContext'
 
-LogBox.ignoreLogs(['Warning: TNodeChildrenRenderer', 'Warning: MemoizedTNodeRenderer', , 'Warning: TRenderEngineProvider'])
+LogBox.ignoreLogs([
+  'Warning: TNodeChildrenRenderer',
+  'Warning: MemoizedTNodeRenderer',
+  'Warning: TRenderEngineProvider',
+  'Support for defaultProps will be removed from function components in a future major release'
+])
 const _layout = () => {
   return (
     <AuthProvider>
@@ -15,19 +20,7 @@ const _layout = () => {
           gestureEnabled: true,
           gestureDirection: 'vertical',
         }}
-      >
-        <Stack.Screen 
-          name="(main)/postDetails" 
-          options={{ 
-            presentation: 'modal', 
-            // contentStyle: { backgroundColor: 'rgba(0,0,0,0.7)' }, // Fondo semitransparente
-            headerShown: false, // Ocultar header específicamente para el modal
-            gestureEnabled: true, // Habilitar gestos
-            gestureDirection: 'vertical', // Dirección del gesto para cerrar
-            animation: 'fade', // Animación específica
-          }}
-        />
-      </Stack>
+      />
     </AuthProvider>
   )
 }

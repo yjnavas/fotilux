@@ -1,12 +1,120 @@
 // URL directa a la API
 const API_URL = 'http://localhost:8000';
 
-export const createPost = async (post) => {
-    try{
-        return {success: true, msg: 'Post creado correctamente'};
-    }catch(error){
+// Función para obtener los comentarios de un post
+export const getPostComments = async (postId) => {
+    try {
+        // Obtener el token del localStorage (para web) o AsyncStorage (para mobile)
+        let token;
+        if (typeof localStorage !== 'undefined') {
+            token = localStorage.getItem('token');
+        }
+
+        const url = `${API_URL}/comments/post/${postId}`;
+        
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+
+        // Agregar el token de autorización si existe
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            return {
+                success: true,
+                data: data
+            };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al obtener los comentarios' }));
+            return { success: false, msg: errorData.detail || 'Error al obtener los comentarios' };
+        }
+    } catch (error) {
         console.log(error);
-        return {success: false, msg: error.message || 'Error al crear el post'};
+        return { success: false, msg: error.message || 'Error al obtener los comentarios' };
+    }
+};
+
+// Función para obtener los likes de un post
+export const getPostLikes = async (postId) => {
+    try {
+        // Obtener el token del localStorage (para web) o AsyncStorage (para mobile)
+        let token;
+        if (typeof localStorage !== 'undefined') {
+            token = localStorage.getItem('token');
+        }
+
+        const url = `${API_URL}/likes/post/${postId}`;
+        
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+
+        // Agregar el token de autorización si existe
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            return {
+                success: true,
+                data: data
+            };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al obtener los likes' }));
+            return { success: false, msg: errorData.detail || 'Error al obtener los likes' };
+        }
+    } catch (error) {
+        console.log(error);
+        return { success: false, msg: error.message || 'Error al obtener los likes' };
+    }
+};
+
+export const createPost = async (postData) => {
+    try {
+        // Obtener el token del localStorage
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        console.log('postData', postData)
+
+        const response = await fetch(`${API_URL}/posts/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(postData)
+        });
+
+        if (response.ok) {
+            const data = await response.json().catch(() => ({ message: 'Post creado correctamente' }));
+            return { success: true, data };
+        } else {
+            const errorMsg = await response.text().catch(() => 'Error al crear el post');
+            return { success: false, msg: errorMsg };
+        }
+    } catch (error) {
+        console.error('Error in createPost:', error);
+        return { success: false, msg: error.message || 'Error al crear el post' };
     }
 };
 
@@ -77,60 +185,150 @@ const getRandomImage = () => {
 };
 
 export const fetchPostDetails = async (id) => {
-    try{
-        return {
-            success: true, 
-            data: {
-                id: 1, 
-                name: 'joe', 
-                title: 'saludos', 
-                body: 'Hola a todos! soy <b>nuevo</b> por aqui! saludos', 
-                userId: 1, 
-                createdAt: '2024-01-18T10:00:00.000Z', 
-                updatedAt: '2023-04-18T10:00:00.000Z', 
-                file: 'imagen1.jpg',
-                comments: [
-                    {
-                        id: 1, 
-                        comment: 'excelente foto',
-                        user: {
-                            id: 1,
-                            name: 'yovani',
-                            // image: 'user?.image',
-                        },
-                    },
-                    {
-                        id: 2, 
-                        comment: 'saludos a mi tia',
-                        user: {
-                            id: 1,
-                            name: 'susan',
-                            // image: 'user?.image',
-                        },
-                    },                    
-                ],
-            }
+    try {
+        // Obtener el token del localStorage (para web) o AsyncStorage (para mobile)
+        let token;
+        if (typeof localStorage !== 'undefined') {
+            token = localStorage.getItem('token');
+        }
+
+        const url = `${API_URL}/posts/${id}`;
+        
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
         };
-    }catch(error){
-        console.log(error);
-        return {success: false, msg: error.message || 'Error al obtener los detalles del post'};
+
+        // Agregar el token de autorización si existe
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        console.log(`Fetching post details for ID: ${id} from URL: ${url}`);
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Post details fetched successfully:', data);
+            
+            // Procesar los datos para agregar imágenes simuladas si no tiene
+            const processedData = {
+                ...data,
+                // Simulamos imágenes aleatorias para los posts que no tienen
+                file: data.file || getRandomImage()
+            };
+            
+            return {
+                success: true,
+                data: processedData
+            };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al obtener los detalles del post' }));
+            console.error('Error fetching post details:', errorData);
+            return { success: false, msg: errorData.detail || 'Error al obtener los detalles del post' };
+        }
+    } catch (error) {
+        console.error('Exception in fetchPostDetails:', error);
+        return { success: false, msg: error.message || 'Error al obtener los detalles del post' };
     }
 };
 
 export const deletePost = async (id) => {
-    try{
-        return {success: true, msg: 'Post eliminado correctamente'};
-    }catch(error){
-        console.log(error);
-        return {success: false, msg: error.message || 'Error al eliminar el post'};
+    try {
+        // Obtener el token del localStorage
+        let token;
+        if (typeof localStorage !== 'undefined') {
+            token = localStorage.getItem('token');
+        }
+        
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        const url = `${API_URL}/posts/${id}`;
+        
+        const response = await fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            return { success: true, msg: 'Post eliminado correctamente' };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al eliminar el post' }));
+            return { success: false, msg: errorData.detail || 'Error al eliminar el post' };
+        }
+    } catch (error) {
+        console.error('Error in deletePost:', error);
+        return { success: false, msg: error.message || 'Error al eliminar el post' };
     }
 };
 
-export const createComment = async (data) => {
-    try{
-        return {success: true, msg: 'Comentario creado correctamente'};
-    }catch(error){
-        console.log(error);
-        return {success: false, msg: error.message || 'Error al crear el comentario'};
+export const createComment = async (data, post_id) => {
+    try {
+        // Obtener el token del localStorage
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        const response = await fetch(`${API_URL}/comments/${post_id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                content: data.content
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            return { success: true, data, msg: 'Comentario creado correctamente' };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al crear el comentario' }));
+            return { success: false, msg: errorData.detail || 'Error al crear el comentario' };
+        }
+    } catch (error) {
+        console.error('Error in createComment:', error);
+        return { success: false, msg: error.message || 'Error al crear el comentario' };
+    }
+};
+
+export const deleteComment = async (commentId) => {
+    try {
+        // Obtener el token del localStorage
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        const response = await fetch(`${API_URL}/comments/${commentId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            return { success: true, msg: 'Comentario eliminado correctamente' };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al eliminar el comentario' }));
+            return { success: false, msg: errorData.detail || 'Error al eliminar el comentario' };
+        }
+    } catch (error) {
+        console.error('Error in deleteComment:', error);
+        return { success: false, msg: error.message || 'Error al eliminar el comentario' };
     }
 };

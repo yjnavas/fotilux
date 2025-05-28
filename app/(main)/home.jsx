@@ -7,7 +7,7 @@ import { theme } from '../../constants/theme'
 import Icon from '../../assets/icons'
 import Avatar from '../../components/Avatar'
 import { currentUser } from '../../constants/user'
-import { getPosts } from '../../services/postServices'
+import { getPosts, getPostComments, getPostLikes } from '../../services/postServices'
 import PostCard from '../../components/PostCard'
 import Loading from '../../components/Loading'
 

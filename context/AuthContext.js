@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
+import { loginUser } from '../services/userServices';
 
 // Crear el contexto
 const AuthContext = createContext();
@@ -41,18 +42,34 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Función para iniciar sesión
-  const login = async (token) => {
+  const login = async (userData) => {
     try {
-      if (Platform.OS === 'web') {
-        localStorage.setItem('token', token);
+      // Caso normal: recibimos credenciales y llamamos al servicio
+      const response = await loginUser(userData);
+      
+      if (response.success && response.data.access_token) {
+        // Guardar el token y los datos del usuario
+        localStorage.setItem('token', response.data.access_token);
+        localStorage.setItem('token_type', response.data.token_type);
+        
+        if (response.data.user) {
+          localStorage.setItem('currentUser', JSON.stringify(response.data.user));
+          setUser(response.data.user);
+        }
+        
+        // Actualizar el estado de autenticación
+        setIsAuthenticated(true);
+        
+        // Pequeña pausa para asegurar que el estado se actualice
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        return { success: true, data: response.data };
       } else {
-        // Para React Native:
-        // await AsyncStorage.setItem('token', token);
-        console.log('Token guardado:', token);
+        return { success: false, msg: response.msg || 'Error al iniciar sesión' };
       }
-      setIsAuthenticated(true);
     } catch (error) {
       console.error('Error during login:', error);
+      return { success: false, msg: error.message || 'Error durante el inicio de sesión' };
     }
   };
 
@@ -61,6 +78,8 @@ export const AuthProvider = ({ children }) => {
     try {
       if (Platform.OS === 'web') {
         localStorage.removeItem('token');
+        localStorage.removeItem('token_type');
+        localStorage.removeItem('currentUser');
       } else {
         // Para React Native:
         // await AsyncStorage.removeItem('token');

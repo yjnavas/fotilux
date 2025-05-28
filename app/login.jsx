@@ -9,7 +9,6 @@ import { wp, hp } from '../helpers/common'
 import Input from '../components/Input'
 import Button from '../components/Button'
 import ScreenWrapper from '../components/ScreenWrapper'
-import { loginUser } from '../services/userServices'
 import { useAuth } from '../context/AuthContext'
 
 const login = () => {
@@ -56,25 +55,15 @@ const login = () => {
           password: passwordRef.current
         };
 
-        const response = await loginUser(userData);
+        const response = await authLogin(userData);
         console.log('login response', response);
 
         if (response.success) {
-          setLoading(false);
-          
-          // Usar el contexto de autenticación para guardar el token
-          if (response.data?.access_token) {
-            // Guardar el token usando el contexto de autenticación
-            await authLogin(response.data.access_token);
-          }
-          
-          if (Platform.OS === 'web') {
-            const confirm = window.confirm('Inicio de sesión exitoso');
-            if (confirm) router.push('/home');
-          } else {
-            Alert.alert('Inicio de sesión exitoso', 'Bienvenido a Fotilux');
-            router.push('/home');
-          }
+          // Esperar un pequeño tiempo para asegurar que el estado de autenticación se actualice
+          setTimeout(() => {
+            setLoading(false);
+            router.replace('/home');
+          }, 300);
         } else {
           setLoading(false);
           if (Platform.OS === 'web') {

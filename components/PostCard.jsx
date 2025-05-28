@@ -1,5 +1,5 @@
-import { Share, StyleSheet, Text, TouchableOpacity, View, Platform, Alert } from 'react-native'
-import React, { useState, useRef } from 'react'
+import { Share, StyleSheet, Text, TouchableOpacity, View, Platform, Alert, Modal } from 'react-native'
+import React, { useState, useRef, useEffect } from 'react'
 import { theme } from '../constants/theme'
 import { hp, wp } from '../helpers/common'
 import Avatar from './Avatar'
@@ -14,7 +14,7 @@ import imagen3 from '../assets/images/imagen3.jpg';
 import { stripHtmlTags } from '../helpers/common'
 import { downloadFile, getUserImageSrc } from '../services/imageServices'
 import Loading from './Loading'
-
+import { getPostComments, getPostLikes, addLike, removeLike, deletePost } from '../services/postServices'
 
 const images = {
   'imagen1.jpg': imagen1,
@@ -38,215 +38,313 @@ const tagStyles = {
     color: theme.colors.text,
   },
 }
+
 const PostCard = ({
-    item,
-    currentUser,
-    router,
-    hasShadow = false,
-    showMoreIcon = true,
-    isDetail = false, 
+  item,
+  currentUser,
+  router,
+  hasShadow = false,
+  showMoreIcon = true,
+  isDetail = false,
+  canDelete = false, 
 }) => {
 
-    const inputRef = useRef(null);
-    const commentRef = useRef('');
+  const inputRef = useRef(null);
+  const commentRef = useRef('');
+  
+  const shadowStyles = {
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
+  }
+
+  const [likes, setLikes] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [likesLoading, setLikesLoading] = useState(false);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  useEffect(() => {
+    if (item?.id) {
+      fetchLikes();
+      fetchComments();
+    }
+  }, [item?.id]);
+
+  const fetchLikes = async () => {
+    if (!item?.id) return;
     
-    const shadowStyles = {
-        shadorOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-        elevation: 1,
+    setLikesLoading(true);
+    try {
+      const res = await getPostLikes(item.id);
+      if (res.success) {
+        setLikes(res.data || []);
+      } else {
+        console.error('Error al cargar likes:', res.msg);
+      }
+    } catch (error) {
+      console.error('Error al cargar likes:', error);
+    } finally {
+      setLikesLoading(false);
     }
+  };
 
-    const [likes, setLikes] = useState([]);
-    const [loading, setLoading] = useState(false);
-
-    const openPostDetails = () => {
-      if(!showMoreIcon) return null;
-        router.push({pathname: 'postDetails', params: {id: item?.id}});
+  const fetchComments = async () => {
+    if (!item?.id) return;
+    
+    setCommentsLoading(true);
+    try {
+      const res = await getPostComments(item.id);
+      if (res.success) {
+        setComments(res.data || []);
+      } else {
+        console.error('Error al cargar comentarios:', res.msg);
+      }
+    } catch (error) {
+      console.error('Error al cargar comentarios:', error);
+    } finally {
+      setCommentsLoading(false);
     }
+  };
 
-    const onLike = () => {
-        //crear dos servicios una para agregar like y otro para quitarlo
+  const openPostDetails = () => {
+    if(!showMoreIcon) return null;
+    if(isDetail) {
+      setShowDropdown(!showDropdown);
+    } else {
+      console.log('estamos tocando el ver mas')
+      router.push({pathname: 'postDetails', params: {id: item?.id}});
     }
+  }
 
-    const onShare = async () => {
+  const onLike = async () => {
+    if (!item?.id || likesLoading) return;
+    
+    setLikesLoading(true);
+    try {
+      const userLiked = likes.some(like => like.userId === currentUser.id);
+      
+      if (userLiked) {
+        setLikes(prevLikes => prevLikes.filter(like => like.userId !== currentUser.id));
+        await removeLike(item.id);
+      } else {
+        const newLike = { userId: currentUser.id, postId: item.id };
+        setLikes(prevLikes => [...prevLikes, newLike]);
+        await addLike(item.id);
+      }
+    } catch (error) {
+      console.error('Error al gestionar like:', error);
+      fetchLikes();
+    } finally {
+      setLikesLoading(false);
+    }
+  }
+
+  const onShare = async () => {
+    setLoading(true);
+    const timer = new Promise(resolve => setTimeout(resolve, 2000));
+    
+    try {
+      let content = { message: stripHtmlTags(item?.body) };
+      
+      if(item?.file) {
+        const fileUri = getUserImageSrc(item.file);
+        const uri = await Promise.race([
+          // downloadFile(fileUri),
+          timer // Timeout de seguridad
+        ]);
+        content.url = uri;
+      }
+    
+      await timer; // Esperar siempre los 3 segundos
+      Share.share(content);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const createdAt = moment(item?.createdAt).format('MMM D');
+  const liked = likes.some(like => like.userId === currentUser.id);
+  const showDelete = item?.userId === currentUser?.id;
+
+  const handleDelete = async () => {
+    const confirmDelete = async () => {
+      // Mostrar indicador de carga
       setLoading(true);
-      const timer = new Promise(resolve => setTimeout(resolve, 2000));
-    
+      
       try {
-        let content = { message: stripHtmlTags(item?.body) };
+        // Llamar al servicio de eliminación
+        const response = await deletePost(item.id);
         
-        if(item?.file) {
-          const fileUri = getUserImageSrc(item.file);
-          const uri = await Promise.race([
-            // downloadFile(fileUri),
-            timer // Timeout de seguridad
-          ]);
-          content.url = uri;
+        if (response.success) {
+          // Mostrar mensaje de éxito
+          if (Platform.OS === 'web') {
+            window.alert("✅ " + response.msg);
+          } else {
+            Alert.alert('Éxito', response.msg + ' ✅');
+          }
+          // Redirigir a la página principal
+          router.push('home');
+        } else {
+          // Mostrar mensaje de error
+          if (Platform.OS === 'web') {
+            window.alert("❌ " + response.msg);
+          } else {
+            Alert.alert('Error', response.msg);
+          }
         }
-    
-        await timer; // Esperar siempre los 3 segundos
-        Share.share(content);
+      } catch (error) {
+        console.error('Error al eliminar el post:', error);
+        // Mostrar mensaje de error
+        if (Platform.OS === 'web') {
+          window.alert("❌ Error al eliminar el post");
+        } else {
+          Alert.alert('Error', 'Error al eliminar el post');
+        }
       } finally {
         setLoading(false);
       }
-    }
-
-    const createdAt = moment(item?.createdAt).format('MMM D');
-    // const liked = likes.filter(like=> like.userId==currentUser.id)[0]? true : false;
-    const liked = true;
-    const showDelete = true;
-
-    const handleDelete = () => {
-      if (Platform.OS === 'web') {
-        const confirm = window.confirm("¿Desea eliminar el post?");
-        if (confirm) {
-          window.alert("✅ Se eliminó con éxito");
-          router.push('home');
-        }
-      } else {
-        inputRef?.current?.clear();
-        commentRef.current = '';
-        Alert.alert('Confirmar', "¿Desea eliminar el post?", [
-          { 
-            text: 'OK', 
-            onPress: () => {
-              Alert.alert(
-                'Éxito', 
-                'Se eliminó con éxito ✅',
-                [
-                  { 
-                    text: 'OK', 
-                    onPress: () => router.push('home') 
-                  }
-                ]
-              );
-            }, 
-            style: 'destructive' 
-          },
-          { 
-            text: 'Cancelar', 
-            onPress: () => console.log('Cancelada la eliminación'), 
-            style: 'cancel' 
-          },
-        ]);
+    };
+    
+    // Mostrar confirmación
+    if (Platform.OS === 'web') {
+      const confirm = window.confirm("¿Desea eliminar el post?");
+      if (confirm) {
+        await confirmDelete();
       }
+    } else {
+      inputRef?.current?.clear();
+      commentRef.current = '';
+      Alert.alert('Confirmar', "¿Desea eliminar el post?", [
+        { 
+          text: 'OK', 
+          onPress: confirmDelete, 
+          style: 'destructive' 
+        },
+        { 
+          text: 'Cancelar', 
+          onPress: () => console.log('Cancelada la eliminación'), 
+          style: 'cancel' 
+        },
+      ]);
     }
+  }
 
-    const handleEdit = () => {
-        inputRef?.current?.clear();
-        commentRef.current = '';
-        router.push({pathname: 'newPost', params: {postId: item?.id}});
-      
-    }
   return (
     <View style={[styles.container, hasShadow && shadowStyles]}>
       <View style={styles.header}>
         {/* user info and post time */}
         <View style={styles.userInfo}>
-            <Avatar
-                size={hp(10)}
-                uri={item?.user?.image}
-                rounded={theme.radius.md}
-            />
-            <View style={{gap: 2}}>
-                <Text style={styles.username}>{item?.name}</Text>
-                <Text style={styles.postTime}>{createdAt}</Text>
-            </View>
+          <Avatar
+            size={hp(10)}
+            uri={item?.user?.image}
+            rounded={theme.radius.md}
+          />
+          <View style={{gap: 2}}>
+            <Text style={styles.username}>{item?.name}</Text>
+            <Text style={styles.postTime}>{createdAt}</Text>
+          </View>
         </View>
         {
-          showMoreIcon && (
-            <TouchableOpacity onPress={openPostDetails}>
-              <View style={{justifyContent: 'center', alignItems: 'center'}}>
-                    <Icon name="threeDotsHorizontal" size={hp(4)} strokeWidth={3} color={theme.colors.text} />
-              </View>
-            </TouchableOpacity>
-          )
-        }
-        {
-          // showDelete && currentUser.id === item?.userId && (
-          showDelete && isDetail && (
-            <View style={styles.actions}>
-              <TouchableOpacity onPress={handleEdit}>
-                <Icon name="edit" size={hp(4)} color={theme.colors.text} />
+          isDetail && item?.userId === currentUser?.id && (
+            <View>
+              <TouchableOpacity onPress={() => setShowDropdown(!showDropdown)}>
+                <View style={{justifyContent: 'center', alignItems: 'center'}}>
+                  <Icon name="threeDotsHorizontal" size={hp(4)} strokeWidth={3} color={theme.colors.text} />
+                </View>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleDelete}>
-                <Icon name="delete" size={hp(4)} color={theme.colors.rose} />
-              </TouchableOpacity>
+              
+              {showDropdown && (
+                <View style={styles.dropdownMenu}>
+                  <TouchableOpacity 
+                    style={styles.dropdownItem} 
+                    onPress={() => {
+                      setShowDropdown(false);
+                      handleDelete();
+                    }}
+                  >
+                    <Icon name="delete" size={hp(3.5)} color={theme.colors.rose} />
+                    <Text style={styles.dropdownText}>Eliminar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )
         }
       </View>
 
-        {/* post body media */}
-        <View style={styles.content}>
-          <View style={styles.postBody}>
-            {
-              item?.body && (
-                <RenderHtml 
-                  source={{html:item?.body}} 
-                  contentWidth={wp(30)} 
-                  tagsStyles={tagStyles} 
-                />
-                // <Text >{item?.body}</Text>
-              )
-            }
-          </View>
-          {/* post image */}
+      {/* post body media */}
+      <View style={styles.content}>
+        <View style={styles.postBody}>
           {
-            item?.file  &&(
-              <View style={styles.postMedia}>
-                  <Image 
-                    source={images[item.file]}
-                    transition={100} 
-                    contentFit='cover' 
-                    style={styles.postMedia} 
-                  />
-              </View>
+            item?.body && (
+              <RenderHtml 
+                source={{html:item?.body}} 
+                contentWidth={wp(30)} 
+                tagsStyles={tagStyles} 
+              />
             )
           }
         </View>
-        {/* Linkedin01FreeIcons, comment, share */}
-        <View style={styles.footer}>
-          <View style={styles.footerButtons}>
-            <TouchableOpacity onPress={onLike}>
+        {/* post image */}
+        {
+          item?.file  &&(
+            <View style={styles.postMedia}>
+              <Image 
+                source={images[item.file]}
+                transition={100} 
+                contentFit='cover' 
+                style={styles.postMedia} 
+              />
+            </View>
+          )
+        }
+      </View>
+      {/* Linkedin01FreeIcons, comment, share */}
+      <View style={styles.footer}>
+        <View style={styles.footerButtons}>
+          <TouchableOpacity onPress={onLike} disabled={likesLoading}>
+            {likesLoading ? (
+              <Loading size="small" color={theme.colors.textLight} />
+            ) : (
               <Icon name="heart" size={24} fill={liked ? theme.colors.rose : 'transparent'} color={liked ? theme.colors.rose : theme.colors.textLight} />
-            </TouchableOpacity>
-            <Text style={styles.count}>
-              {
-                likes?.length
-              }
-            </Text>
-          </View>
-          <View style={styles.footerButtons}>
-            <TouchableOpacity onPress={openPostDetails}>
-              <Icon name="comment" size={24} color={ theme.colors.textLight} />
-            </TouchableOpacity>
-            <Text style={styles.count}>
-              {
-                0 //item?.comments[0]?.length
-              }
-            </Text>
-          </View>
-          <View style={styles.footerButtons}>
-            {
-              loading ? (
-                <Loading size="small" color={theme.colors.textLight} />
-              ) : (
-                <TouchableOpacity onPress={onShare}>
-                  <Icon name="share" size={24} color={ theme.colors.textLight} />
-                </TouchableOpacity>
-              )
-            }
-            <Text style={styles.count}>
-              {
-                0
-              }
-            </Text>
-          </View>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.count}>
+            {likes?.length || 0}
+          </Text>
+        </View>
+        <View style={styles.footerButtons}>
+          <TouchableOpacity onPress={openPostDetails}>
+            {commentsLoading ? (
+              <Loading size="small" color={theme.colors.textLight} />
+            ) : (
+              <Icon name="comment" size={24} color={theme.colors.textLight} />
+            )}
+          </TouchableOpacity>
+          <Text style={styles.count}>
+            {comments?.length || 0}
+          </Text>
+        </View>
+        <View style={styles.footerButtons}>
+          {
+            loading ? (
+              <Loading size="small" color={theme.colors.textLight} />
+            ) : (
+              <TouchableOpacity onPress={onShare}>
+                <Icon name="share" size={24} color={theme.colors.textLight} />
+              </TouchableOpacity>
+            )
+          }
+          <Text style={styles.count}>
+            {0}
+          </Text>
+        </View>
         </View>
     </View>
   )
@@ -266,6 +364,32 @@ const styles = StyleSheet.create({
         borderWidth: 0.5,
         borderColor: theme.colors.gray,
         shadowColor: '#000',
+    },
+    dropdownMenu: {
+        position: 'absolute',
+        right: 32,
+        top: hp(-2),
+        backgroundColor: theme.colors.white,
+        borderRadius: theme.radius.md,
+        borderWidth: 1,
+        borderColor: theme.colors.gray,
+        padding: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        zIndex: 1000,
+        elevation: 5,
+    },
+    dropdownItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+        gap: 8,
+    },
+    dropdownText: {
+        color: theme.colors.text,
+        fontSize: hp(3),
     },
     header: {
         flexDirection: 'row',
