@@ -14,7 +14,8 @@ import imagen3 from '../assets/images/imagen3.jpg';
 import { stripHtmlTags } from '../helpers/common'
 import { downloadFile, getUserImageSrc } from '../services/imageServices'
 import Loading from './Loading'
-import { getPostComments, getPostLikes, addLike, removeLike, deletePost } from '../services/postServices'
+import { getPostComments, getPostLikes, addLike, removeLike, deletePost, create_favorite, delete_favorite, get_post_favorites } from '../services/postServices'
+import { updateFavoriteState, getFavoriteState, addFavoriteStateListener, FAVORITE_STATE_CHANGED_EVENT } from '../utils/favoriteStateManager'
 
 const images = {
   'imagen1.jpg': imagen1,
@@ -69,6 +70,7 @@ const PostCard = ({
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [liked, setLiked] = useState(false);
+  const [favorited, setFavorited] = useState(false);
 
   // Initial data fetch when component mounts
   useEffect(() => {
@@ -79,15 +81,24 @@ const PostCard = ({
       
       console.log(`Cargando datos para post ${item.id}`);
       
+      // Verificar si hay un estado de favorito guardado
+      const savedFavoriteState = getFavoriteState(item.id);
+      if (savedFavoriteState !== null) {
+        console.log(`Estado de favorito guardado para post ${item.id}:`, savedFavoriteState);
+        setFavorited(savedFavoriteState);
+      }
+      
       // Establecer estados de carga
       setLikesLoading(true);
       setCommentsLoading(true);
+      setLoading(true); // Para favoritos
       
       try {
-        // Ejecutar ambas consultas en paralelo y esperar a que ambas terminen
-        const [likesResult, commentsResult] = await Promise.all([
+        // Ejecutar todas las consultas en paralelo y esperar a que terminen
+        const [likesResult, commentsResult, favoritesResult] = await Promise.all([
           getPostLikes(item.id),
-          getPostComments(item.id)
+          getPostComments(item.id),
+          get_post_favorites(item.id)
         ]);
         
         console.log(`Datos cargados para post ${item.id}`);
@@ -119,16 +130,57 @@ const PostCard = ({
         } else {
           console.error('Error al cargar comentarios:', commentsResult.msg);
         }
+        
+        // Procesar resultados de favoritos
+        if (favoritesResult.success && savedFavoriteState === null) {
+          console.log('favoritesResult', favoritesResult);
+          // Verificar si el post actual está en favoritos del usuario
+          const isPostFavorited = favoritesResult.data.some(fav => fav.user_id === currentUser?.id);
+          console.log(`Post ${item.id} está en favoritos: ${isPostFavorited}`);
+          
+          // Si se proporciona isFavorited directamente, usarlo
+          if (item.isFavorited !== undefined) {
+            console.log(`Usando isFavorited proporcionado directamente para post ${item.id}:`, item.isFavorited);
+            setFavorited(item.isFavorited);
+            // Actualizar el estado global
+            updateFavoriteState(item.id, item.isFavorited);
+          } else {
+            // Usar el resultado de la API
+            setFavorited(isPostFavorited);
+            // Actualizar el estado global
+            updateFavoriteState(item.id, isPostFavorited);
+          }
+        } else if (!favoritesResult.success) {
+          console.error('Error al cargar favoritos:', favoritesResult.msg);
+        }
       } catch (error) {
         console.error('Error al cargar datos del post:', error);
       } finally {
         setLikesLoading(false);
         setCommentsLoading(false);
+        setLoading(false); // Para favoritos
       }
     };
     
     loadData();
-  }, [item?.id, item?.isLiked, currentUser?.id]);
+    
+    // Configurar listener para cambios en el estado de favoritos
+    const handleFavoriteChange = (event) => {
+      const { postId, isFavorited } = event.detail;
+      if (postId === item?.id?.toString()) {
+        console.log(`Recibido evento de cambio de favorito para post ${postId}:`, isFavorited);
+        setFavorited(isFavorited);
+      }
+    };
+    
+    // Agregar event listener
+    window.addEventListener(FAVORITE_STATE_CHANGED_EVENT, handleFavoriteChange);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener(FAVORITE_STATE_CHANGED_EVENT, handleFavoriteChange);
+    };
+  }, [item?.id, item?.isLiked, item?.isFavorited, currentUser?.id]);
   
   
   // Listen for global like state changes
@@ -313,32 +365,64 @@ const PostCard = ({
     }
   }
 
-  const onShare = async () => {
+  const onFavorites = async () => {
+    if (!currentUser) {
+      Alert.alert('Error', 'Debes iniciar sesión para agregar a favoritos');
+      return;
+    }
+
     setLoading(true);
-    const timer = new Promise(resolve => setTimeout(resolve, 2000));
-    
     try {
-      let content = { message: stripHtmlTags(item?.body) };
-      
-      if(item?.file) {
-        const fileUri = getUserImageSrc(item.file);
-        const uri = await Promise.race([
-          // downloadFile(fileUri),
-          timer // Timeout de seguridad
-        ]);
-        content.url = uri;
+      if (!favorited) {
+        // Agregar a favoritos
+        const response = await create_favorite(item.id);
+        if (response.success) {
+          setFavorited(true);
+          // Actualizar el estado global y notificar a otros componentes
+          updateFavoriteState(item.id, true);
+          if (Platform.OS === 'web') {
+            alert('Post agregado a favoritos');
+          } else {
+            Alert.alert('Éxito', 'Post agregado a favoritos');
+          }
+        } else {
+          if (Platform.OS === 'web') {
+            alert(response.msg || 'Error al agregar a favoritos');
+          } else {
+            Alert.alert('Error', response.msg || 'Error al agregar a favoritos');
+          }
+        }
+      } else {
+        // Quitar de favoritos
+        const response = await delete_favorite(item.id);
+        if (response.success) {
+          setFavorited(false);
+          // Actualizar el estado global y notificar a otros componentes
+          updateFavoriteState(item.id, false);
+          if (Platform.OS === 'web') {
+            alert('Post eliminado de favoritos');
+          } else {
+            Alert.alert('Éxito', 'Post eliminado de favoritos');
+          }
+        } else {
+          if (Platform.OS === 'web') {
+            alert(response.msg || 'Error al eliminar de favoritos');
+          } else {
+            Alert.alert('Error', response.msg || 'Error al eliminar de favoritos');
+          }
+        }
       }
-    
-      await timer; // Esperar siempre los 3 segundos
-      Share.share(content);
+    } catch (error) {
+      console.error('Error en onFavorites:', error);
+      if (Platform.OS === 'web') {
+        alert('Error al procesar la operación de favoritos');
+      } else {
+        Alert.alert('Error', 'Error al procesar la operación de favoritos');
+      }
     } finally {
       setLoading(false);
     }
   }
-
-  const createdAt = moment(item?.createdAt).format('MMM D');
-  // We're now using the liked state variable instead of calculating it here
-  const showDelete = item?.userId === currentUser?.id;
 
   const handleDelete = async () => {
     const confirmDelete = async () => {
@@ -402,6 +486,10 @@ const PostCard = ({
       ]);
     }
   }
+
+  const createdAt = moment(item?.createdAt).format('MMM D');
+  // We're now using the liked state variable instead of calculating it here
+  const showDelete = item?.userId === currentUser?.id;
 
   return (
     <View style={[styles.container, hasShadow && shadowStyles]}>
@@ -507,8 +595,8 @@ const PostCard = ({
             loading ? (
               <Loading size="small" color={theme.colors.textLight} />
             ) : (
-              <TouchableOpacity onPress={onShare}>
-                <Icon name="star" size={24} color={theme.colors.textLight} />
+              <TouchableOpacity onPress={onFavorites}>
+                <Icon name="star" size={24} fill={favorited ? theme.colors.yellow : 'transparent'} color={favorited ? theme.colors.yellow : theme.colors.textLight} />
               </TouchableOpacity>
             )
           }

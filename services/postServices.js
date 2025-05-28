@@ -405,3 +405,113 @@ export const removeLike = async (postId) => {
         return { success: false, msg: error.message || 'Error al quitar like' };
     }
 };
+
+// Función para agregar un post a favoritos
+export const create_favorite = async (postId) => {
+    try {
+        // Obtener el token del localStorage
+        let token;
+        if (typeof localStorage !== 'undefined') {
+            token = localStorage.getItem('token');
+        }
+        
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        const url = `${API_URL}/favorites/${postId}`;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json().catch(() => ({}));
+            return { success: true, data, msg: 'Post agregado a favoritos correctamente' };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al agregar a favoritos' }));
+            return { success: false, msg: errorData.detail || 'Error al agregar a favoritos' };
+        }
+    } catch (error) {
+        console.error('Error in create_favorite:', error);
+        return { success: false, msg: error.message || 'Error al agregar a favoritos' };
+    }
+};
+
+// Función para eliminar un post de favoritos
+export const delete_favorite = async (postId) => {
+    try {
+        // Obtener el token del localStorage
+        let token;
+        if (typeof localStorage !== 'undefined') {
+            token = localStorage.getItem('token');
+        }
+        
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        const url = `${API_URL}/favorites/${postId}`;
+        
+        const response = await fetch(url, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            return { success: true, msg: 'Post eliminado de favoritos correctamente' };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al eliminar de favoritos' }));
+            return { success: false, msg: errorData.detail || 'Error al eliminar de favoritos' };
+        }
+    } catch (error) {
+        console.error('Error in delete_favorite:', error);
+        return { success: false, msg: error.message || 'Error al eliminar de favoritos' };
+    }
+};
+
+// Función para obtener los posts favoritos de un usuario
+export const get_post_favorites = async (postId) => {
+    try {
+        // Obtener el token del localStorage
+        let token;
+        if (typeof localStorage !== 'undefined') {
+            token = localStorage.getItem('token');
+        }
+        
+        if (!token) {
+            throw new Error('No hay token de autenticación');
+        }
+
+        const url = `${API_URL}/favorites/post/${postId}`;
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            return { success: true, data };
+        } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Error al obtener favoritos' }));
+            return { success: false, msg: errorData.detail || 'Error al obtener favoritos' };
+        }
+    } catch (error) {
+        console.error('Error in get_post_favorites:', error);
+        return { success: false, msg: error.message || 'Error al obtener favoritos' };
+    }
+};

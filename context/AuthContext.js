@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
 import { loginUser } from '../services/userServices';
+import { initializeFavoriteStates, clearFavoriteStates } from '../utils/favoriteStateManager';
 
 // Crear el contexto
 const AuthContext = createContext();
@@ -22,7 +23,25 @@ export const AuthProvider = ({ children }) => {
         // En web usamos localStorage
         if (Platform.OS === 'web') {
           const token = localStorage.getItem('token');
-          setIsAuthenticated(!!token);
+          const isAuth = !!token;
+          setIsAuthenticated(isAuth);
+          
+          // Si el usuario está autenticado, inicializar el estado de favoritos
+          if (isAuth) {
+            const userDataStr = localStorage.getItem('currentUser');
+            if (userDataStr) {
+              try {
+                const userData = JSON.parse(userDataStr);
+                setUser(userData);
+                
+                // Inicializar el estado de favoritos para el usuario actual
+                await initializeFavoriteStates(userData.id);
+                console.log('Estado de favoritos inicializado para el usuario:', userData.id);
+              } catch (parseError) {
+                console.error('Error parsing user data:', parseError);
+              }
+            }
+          }
         } 
         // En mobile usamos AsyncStorage
         else {
@@ -55,6 +74,10 @@ export const AuthProvider = ({ children }) => {
         if (response.data.user) {
           localStorage.setItem('currentUser', JSON.stringify(response.data.user));
           setUser(response.data.user);
+          
+          // Inicializar el estado de favoritos para el usuario actual
+          await initializeFavoriteStates(response.data.user.id);
+          console.log('Estado de favoritos inicializado para el usuario:', response.data.user.id);
         }
         
         // Actualizar el estado de autenticación
@@ -90,6 +113,11 @@ export const AuthProvider = ({ children }) => {
         // await AsyncStorage.removeItem('globalLikeState');
         console.log('Token eliminado');
       }
+      
+      // Limpiar el estado de favoritos
+      clearFavoriteStates();
+      console.log('Estado de favoritos limpiado correctamente');
+      
       setIsAuthenticated(false);
       router.replace('/login');
     } catch (error) {
