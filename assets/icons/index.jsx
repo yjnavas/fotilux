@@ -19,6 +19,7 @@ import Share from './Share'
 import ThreeDotsHorizontal  from './ThreeDotsHorizontal'
 import Send from './Send'
 import Search from './Search'
+import Star from './Star'
 import { theme } from '../../constants/theme'
 
 const icons = {
@@ -41,6 +42,7 @@ const icons = {
   threeDotsHorizontal: ThreeDotsHorizontal,
   send: Send,
   search: Search,
+  star: Star,
 }
 
 const Icon = ({name, ...props}) => {

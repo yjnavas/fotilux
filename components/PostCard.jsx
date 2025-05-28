@@ -508,13 +508,10 @@ const PostCard = ({
               <Loading size="small" color={theme.colors.textLight} />
             ) : (
               <TouchableOpacity onPress={onShare}>
-                <Icon name="share" size={24} color={theme.colors.textLight} />
+                <Icon name="star" size={24} color={theme.colors.textLight} />
               </TouchableOpacity>
             )
           }
-          <Text style={styles.count}>
-            {0}
-          </Text>
         </View>
         </View>
     </View>
