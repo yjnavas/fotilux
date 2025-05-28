@@ -97,6 +97,59 @@ const postDetails = () => {
       fetchComments(postId);
     }
   }, [postId]);
+  
+  // Listen for global like state changes
+  useEffect(() => {
+    if (!post?.id) return;
+    
+    const handleLikeStateChange = (event) => {
+      try {
+        // If this event is for this specific post, update the post data
+        if (event && event.detail && event.detail.postId === post.id.toString()) {
+          console.log(`Updating post ${post.id} in postDetails with new like info:`, event.detail);
+          
+          // Update the post with the new like information
+          setPost(currentPost => ({
+            ...currentPost,
+            // Update likes count if provided in the event
+            likes: Array.isArray(currentPost.likes) 
+              ? (event.detail.isLiked 
+                ? [...currentPost.likes.filter(like => like.userId !== user?.id), { userId: user?.id, postId: currentPost.id }]
+                : currentPost.likes.filter(like => like.userId !== user?.id))
+              : []
+          }));
+        }
+      } catch (error) {
+        console.error('Error handling like state change in postDetails:', error);
+      }
+    };
+    
+    // Add event listener
+    window.addEventListener('globalLikeStateChanged', handleLikeStateChange);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('globalLikeStateChanged', handleLikeStateChange);
+    };
+  }, [post?.id, user?.id]);
+
+  // Check initial like state from localStorage when post is loaded
+  useEffect(() => {
+    if (post?.id && user?.id) {
+      try {
+        const globalLikeState = localStorage.getItem('globalLikeState') || '{}';
+        const likeStates = JSON.parse(globalLikeState);
+        const postState = likeStates[post.id.toString()];
+        
+        if (postState) {
+          console.log(`Found initial global like state for post ${post.id} in postDetails:`, postState);
+          // No need to set a separate state, the PostCard component will handle this
+        }
+      } catch (error) {
+        console.error('Error checking initial global like state in postDetails:', error);
+      }
+    }
+  }, [post?.id, user?.id]);
 
   const getPostDetails = async (id) => {
     try {

@@ -7,7 +7,7 @@ import { theme } from '../../constants/theme'
 import Icon from '../../assets/icons'
 import Avatar from '../../components/Avatar'
 import { currentUser } from '../../constants/user'
-import { getPosts, getPostComments, getPostLikes } from '../../services/postServices'
+import { getPosts } from '../../services/postServices'
 import PostCard from '../../components/PostCard'
 import Loading from '../../components/Loading'
 
@@ -44,6 +44,43 @@ const Home = () => {
   useEffect(() => {
     fetchInitialPosts();
   }, []);
+  
+  // Listen for global like state changes
+  useEffect(() => {
+    const handleLikeStateChange = (event) => {
+      if (!event.detail) return;
+      
+      console.log('Global like state change received in home:', event.detail);
+      const { postId, isLiked, count } = event.detail;
+      
+      // Update only the specific post that was liked/unliked
+      setPosts(currentPosts => {
+        return currentPosts.map(post => {
+          // If this is the post that was liked/unliked
+          if (post.id.toString() === postId.toString()) {
+            // Create a copy of the post with updated like information
+            const updatedPost = { ...post };
+            
+            // Update the post with the new like count
+            // Note: The actual like status will be handled by the PostCard component
+            console.log(`Updating post ${postId} with new like count: ${count}`);
+            return updatedPost;
+          }
+          return post;
+        });
+      });
+    };
+    
+    // Add event listener
+    window.addEventListener('globalLikeStateChanged', handleLikeStateChange);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('globalLikeStateChanged', handleLikeStateChange);
+    };
+  }, []);
+
+
 
   // Función para cargar más posts (infinite scroll)
   const loadMorePosts = async () => {
@@ -90,13 +127,6 @@ const Home = () => {
       setRefreshing(false);
     }
   };
-
-  // const onLogout = () => {
-    // Usar el contexto de autenticación para cerrar sesión
-    // logout();
-    // console.log('logout');
-    // No es necesario hacer router.replace('/login') porque ya se hace en la función logout del contexto
-  // }
 
   return (
     <ScreenWrapper bg={'white'}>
@@ -219,4 +249,5 @@ const styles = StyleSheet.create({
     fontSize: hp(1.2),
     fontWeight: theme.fonts.bold,
   },
+
 })
