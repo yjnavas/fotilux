@@ -481,37 +481,89 @@ export const delete_favorite = async (postId) => {
 
 // Función para obtener los posts favoritos de un usuario
 export const get_post_favorites = async (postId) => {
+try {
+    // Obtener el token del localStorage
+    let token;
+    if (typeof localStorage !== 'undefined') {
+        token = localStorage.getItem('token');
+    }
+    
+    if (!token) {
+        throw new Error('No hay token de autenticación');
+    }
+
+    const url = `${API_URL}/favorites/post/${postId}`;
+    
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+        }
+    });
+
+    if (response.ok) {
+        const data = await response.json();
+        return { success: true, data };
+    } else {
+        const errorData = await response.json().catch(() => ({ detail: 'Error al obtener favoritos' }));
+        return { success: false, msg: errorData.detail || 'Error al obtener favoritos' };
+    }
+} catch (error) {
+    console.error('Error in get_post_favorites:', error);
+    return { success: false, msg: error.message || 'Error al obtener favoritos' };
+}
+};
+
+// Función para obtener todos los posts favoritos del usuario en sesión
+export const getFavoritesPost = async (skip = 0, limit = 10) => {
     try {
-        // Obtener el token del localStorage
+        // Obtener el token del localStorage (para web) o AsyncStorage (para mobile)
         let token;
         if (typeof localStorage !== 'undefined') {
             token = localStorage.getItem('token');
         }
+
+        // Construir la URL con los parámetros de paginación
+        const url = `${API_URL}/favorites/my-posts?skip=${skip}&limit=${limit}`;
         
-        if (!token) {
-            throw new Error('No hay token de autenticación');
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+
+        // Agregar el token de autorización si existe
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const url = `${API_URL}/favorites/post/${postId}`;
-        
         const response = await fetch(url, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
+            headers: headers
         });
 
         if (response.ok) {
             const data = await response.json();
-            return { success: true, data };
+            
+            // Procesar los datos para agregar imágenes simuladas
+            const processedData = data.map(post => ({
+                ...post,
+                // Simulamos imágenes aleatorias para los posts
+                file: post.file || getRandomImage()
+            }));
+            
+            return {
+                success: true,
+                data: processedData,
+                hasMore: data.length === limit // Si recibimos menos items que el límite, no hay más datos
+            };
         } else {
-            const errorData = await response.json().catch(() => ({ detail: 'Error al obtener favoritos' }));
-            return { success: false, msg: errorData.detail || 'Error al obtener favoritos' };
+            const errorData = await response.json().catch(() => ({ detail: 'Error al obtener los posts' }));
+            return { success: false, msg: errorData.detail || 'Error al obtener los posts' };
         }
     } catch (error) {
-        console.error('Error in get_post_favorites:', error);
-        return { success: false, msg: error.message || 'Error al obtener favoritos' };
+        console.log(error);
+        return { success: false, msg: error.message || 'Error al obtener los posts' };
     }
 };

@@ -217,6 +217,17 @@ const UserHeader = ({user, router, logout, isCurrentUser = true}) => {
                       <Text style={styles.infoText}>2K</Text>
                     </Pressable>
                 </View>
+                
+                {/* Botón de favoritos - solo visible para el usuario actual */}
+                {isCurrentUser && (
+                  <Pressable 
+                    style={styles.favoritesButton}
+                    onPress={() => router.push('favoritesPosts')}
+                  >
+                    <Icon name="star" size={hp(3)} strokeWidth={2} color={theme.colors.primary} />
+                    <Text style={styles.favoritesText}>Mis Favoritos</Text>
+                  </Pressable>
+                )}
 
                 <View 
                   style={{
@@ -331,6 +342,23 @@ const styles = StyleSheet.create({
         fontSize: hp(2),
         textAlign: 'center',
         color: theme.colors.text,
+    },
+    favoritesButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.primaryLight,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: theme.radius.md,
+        marginVertical: 15,
+        alignSelf: 'center',
+        gap: 8,
+    },
+    favoritesText: {
+        fontSize: hp(4),
+        fontWeight: theme.fonts.semibold,
+        color: theme.colors.primary,
     },
     gridContainer: {
       paddingTop: 20,
