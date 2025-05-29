@@ -1,13 +1,38 @@
 // Utility for managing comment state across components
 import { getPostComments } from '../services/postServices';
+import { createStateManager } from './stateManagerFactory';
 
-// Store for comment states
-const commentStates = {};
+// Create the comment state manager using the factory
+const commentManager = createStateManager({
+  name: 'comment',
+  localStorageKey: 'globalCommentState',
+  storeFullDataInStorage: false, // Only store counts in localStorage, not full comments
+  
+  // Function to fetch initial data
+  fetchInitialData: async (params) => {
+    const { postId } = params;
+    return await getPostComments(postId);
+  },
+  
+  // Function to process API response
+  processApiResponse: (data, params) => {
+    const { postId } = params;
+    const processedData = {};
+    
+    const comments = Array.isArray(data) ? data : [];
+    processedData[postId] = {
+      comments,
+      count: comments.length
+    };
+    
+    return processedData;
+  }
+});
 
-// Event name constants
-export const COMMENT_STATE_CHANGED_EVENT = 'commentStateChanged';
-export const COMMENT_STATE_INITIALIZED_EVENT = 'commentStateInitialized';
-export const COMMENT_STATE_CLEARED_EVENT = 'commentStateCleared';
+// Export constants
+export const COMMENT_STATE_CHANGED_EVENT = commentManager.STATE_CHANGED_EVENT;
+export const COMMENT_STATE_INITIALIZED_EVENT = commentManager.STATE_INITIALIZED_EVENT;
+export const COMMENT_STATE_CLEARED_EVENT = commentManager.STATE_CLEARED_EVENT;
 
 /**
  * Update the comment state for a post
@@ -15,58 +40,24 @@ export const COMMENT_STATE_CLEARED_EVENT = 'commentStateCleared';
  * @param {Array} comments - Array of comments
  */
 export const updateCommentState = (postId, comments) => {
-  // Ensure postId is a string for consistency
-  const postIdStr = postId.toString();
-  
-  // Update state
-  commentStates[postIdStr] = {
-    comments: comments || [],
-    count: comments ? comments.length : 0,
-    timestamp: Date.now()
-  };
-  
-  // Dispatch event to notify all components
-  if (typeof window !== 'undefined') {
-    const event = new CustomEvent(COMMENT_STATE_CHANGED_EVENT, {
-      detail: { 
-        postId: postIdStr, 
-        comments: comments || [], 
-        count: comments ? comments.length : 0 
-      }
-    });
-    window.dispatchEvent(event);
-  }
-  
-  // Persist count in localStorage for session persistence
-  // We don't store full comments to avoid excessive storage
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const globalCommentStateString = localStorage.getItem('globalCommentState') || '{}';
-      const globalCommentState = JSON.parse(globalCommentStateString);
-      
-      globalCommentState[postIdStr] = {
-        count: comments ? comments.length : 0,
-        timestamp: Date.now()
-      };
-      
-      localStorage.setItem('globalCommentState', JSON.stringify(globalCommentState));
-    }
-  } catch (error) {
-    console.error('Error persisting comment state to localStorage:', error);
-  }
+  const commentsArray = comments || [];
+  commentManager.updateState(postId, {
+    comments: commentsArray,
+    count: commentsArray.length
+  });
 };
 
 /**
  * Add a new comment to a post's comment state
  * @param {string|number} postId - The post ID
  * @param {object} newComment - The new comment to add
+ * @returns {Array} - Updated comments array
  */
 export const addComment = (postId, newComment) => {
-  const postIdStr = postId.toString();
-  const currentState = getCommentState(postIdStr);
+  const currentState = getCommentState(postId);
   
   let updatedComments = [];
-  if (currentState && currentState.comments) {
+  if (currentState && Array.isArray(currentState.comments)) {
     // Add to existing comments
     updatedComments = [...currentState.comments, newComment];
   } else {
@@ -75,7 +66,7 @@ export const addComment = (postId, newComment) => {
   }
   
   // Update state with new comments array
-  updateCommentState(postIdStr, updatedComments);
+  updateCommentState(postId, updatedComments);
   
   return updatedComments;
 };
@@ -86,72 +77,36 @@ export const addComment = (postId, newComment) => {
  * @returns {object|null} - The comment state object, or null if not found
  */
 export const getCommentState = (postId) => {
-  const postIdStr = postId.toString();
+  const state = commentManager.getState(postId);
   
-  // First check memory state
-  if (commentStates[postIdStr]) {
-    return commentStates[postIdStr];
+  // If we only have count from localStorage but no comments array
+  if (state && state.count !== undefined && !state.comments) {
+    return {
+      ...state,
+      comments: []
+    };
   }
   
-  // Then check localStorage (only has count, not full comments)
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const globalCommentStateString = localStorage.getItem('globalCommentState') || '{}';
-      const globalCommentState = JSON.parse(globalCommentStateString);
-      
-      if (globalCommentState[postIdStr]) {
-        // We only store count in localStorage, not full comments
-        return {
-          count: globalCommentState[postIdStr].count,
-          comments: [],
-          timestamp: globalCommentState[postIdStr].timestamp
-        };
-      }
-    }
-  } catch (error) {
-    console.error('Error reading comment state from localStorage:', error);
-  }
-  
-  return null;
+  return state;
 };
 
 /**
  * Initialize comment states from API for posts
- * @param {Array} postIds - Array of post IDs to initialize
+ * @param {string|number} userId - The current user ID (not used but kept for API consistency)
+ * @param {Array} postIds - Optional array of post IDs to initialize
  * @returns {Promise<void>}
  */
-export const initializeCommentStates = async (postIds) => {
-  if (!postIds || !postIds.length) return;
-  
-  try {
-    console.log('Initializing comment states for posts:', postIds);
-    
-    // Process each post ID
+export const initializeCommentStates = async (userId, postIds = []) => {
+  // If no specific postIds provided, we don't initialize anything yet
+  // They will be initialized on demand when needed
+  if (postIds.length > 0) {
     for (const postId of postIds) {
       try {
-        // Get comments for this post
-        const response = await getPostComments(postId);
-        
-        if (response.success) {
-          // Update state with comments
-          updateCommentState(postId, response.data || []);
-          
-          console.log(`Comment state initialized for post ${postId}: count=${response.data ? response.data.length : 0}`);
-        }
-      } catch (postError) {
-        console.error(`Error initializing comment state for post ${postId}:`, postError);
+        await commentManager.initializeStates({ postId });
+      } catch (error) {
+        console.error(`Error initializing comment state for post ${postId}:`, error);
       }
     }
-    
-    // Dispatch event to notify components about initialization
-    if (typeof window !== 'undefined') {
-      const event = new CustomEvent(COMMENT_STATE_INITIALIZED_EVENT, {
-        detail: { commentStates: { ...commentStates } }
-      });
-      window.dispatchEvent(event);
-    }
-  } catch (error) {
-    console.error('Error initializing comment states:', error);
   }
 };
 
@@ -159,25 +114,7 @@ export const initializeCommentStates = async (postIds) => {
  * Clear all comment states (e.g., on logout)
  */
 export const clearCommentStates = () => {
-  // Clear all states
-  Object.keys(commentStates).forEach(key => delete commentStates[key]);
-  
-  console.log('Comment states cleared');
-  
-  // Clear localStorage
-  try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('globalCommentState');
-    }
-  } catch (error) {
-    console.error('Error clearing comment states from localStorage:', error);
-  }
-  
-  // Dispatch event to notify components
-  if (typeof window !== 'undefined') {
-    const event = new CustomEvent(COMMENT_STATE_CLEARED_EVENT);
-    window.dispatchEvent(event);
-  }
+  commentManager.clearStates();
 };
 
 /**
@@ -187,9 +124,5 @@ export const clearCommentStates = () => {
  * @returns {Function} - A function to remove the event listener
  */
 export const addCommentStateListener = (callback, eventType = COMMENT_STATE_CHANGED_EVENT) => {
-  if (typeof window !== 'undefined') {
-    window.addEventListener(eventType, callback);
-    return () => window.removeEventListener(eventType, callback);
-  }
-  return () => {};
+  return commentManager.addStateListener(callback, eventType);
 };

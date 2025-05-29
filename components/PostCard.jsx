@@ -135,6 +135,11 @@ const PostCard = ({
       if (postId === item?.id?.toString()) {
         console.log(`Recibido evento de cambio de comentarios para post ${postId}:`, comments.length);
         setComments(comments || []);
+        
+        // Actualizar el contador de comentarios en la UI inmediatamente
+        // Esto asegura que el contador se actualice sin tener que recargar el componente
+        const commentCount = comments ? comments.length : 0;
+        console.log(`Actualizando contador de comentarios para post ${postId} a: ${commentCount}`);
       }
     };
     
@@ -246,6 +251,9 @@ const PostCard = ({
         
         // Actualizar el estado global
         updateCommentState(item.id, commentsData);
+        
+        // Registrar la actualización del contador
+        console.log(`Contador de comentarios actualizado para post ${item.id}: ${commentsData.length}`);
       } else {
         console.error('Error al cargar comentarios:', res.msg);
       }

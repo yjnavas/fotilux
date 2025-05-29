@@ -3,8 +3,8 @@ import { router } from 'expo-router';
 import { Platform } from 'react-native';
 import { loginUser } from '../services/userServices';
 import { initializeFavoriteStates, clearFavoriteStates } from '../utils/favoriteStateManager';
-import { clearLikeStates } from '../utils/likeStateManager';
-import { clearCommentStates } from '../utils/commentStateManager';
+import { initializeLikeStates, clearLikeStates } from '../utils/likeStateManager';
+import { initializeCommentStates, clearCommentStates } from '../utils/commentStateManager';
 
 // Crear el contexto
 const AuthContext = createContext();
@@ -36,9 +36,11 @@ export const AuthProvider = ({ children }) => {
                 const userData = JSON.parse(userDataStr);
                 setUser(userData);
                 
-                // Inicializar el estado de favoritos para el usuario actual
+                // Inicializar los estados para el usuario actual
+                // Nota: Ahora todos los state managers tienen una API consistente
                 await initializeFavoriteStates(userData.id);
-                console.log('Estado de favoritos inicializado para el usuario:', userData.id);
+                await initializeLikeStates(userData.id); // Ya no necesita postIds como primer parámetro
+                await initializeCommentStates(userData.id); // Ahora acepta userId por consistencia
               } catch (parseError) {
                 console.error('Error parsing user data:', parseError);
               }
@@ -77,9 +79,11 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('currentUser', JSON.stringify(response.data.user));
           setUser(response.data.user);
           
-          // Inicializar el estado de favoritos para el usuario actual
+          // Inicializar los estados para el usuario actual
+          // Usando la API consistente para todos los state managers
           await initializeFavoriteStates(response.data.user.id);
-          console.log('Estado de favoritos inicializado para el usuario:', response.data.user.id);
+          await initializeLikeStates(response.data.user.id);
+          await initializeCommentStates(response.data.user.id);
         }
         
         // Actualizar el estado de autenticación
@@ -106,10 +110,9 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token_type');
         localStorage.removeItem('currentUser');
         
-        // Limpiar estado de likes almacenado en localStorage
-        localStorage.removeItem('globalLikeState');
-        localStorage.removeItem('globalCommentState');
-        console.log('Estados de likes y comentarios limpiados correctamente');
+        // Ya no necesitamos eliminar manualmente los estados de localStorage
+        // Los state managers se encargan de esto a través de sus métodos clearStates
+        console.log('Estados de likes y comentarios se limpiarán a través de los state managers');
       } else {
         // Para React Native:
         // await AsyncStorage.removeItem('token');
@@ -118,7 +121,7 @@ export const AuthProvider = ({ children }) => {
         console.log('Token eliminado');
       }
       
-      // Limpiar todos los estados globales
+      // Limpiar todos los estados globales usando los métodos optimizados
       clearFavoriteStates();
       clearLikeStates();
       clearCommentStates();

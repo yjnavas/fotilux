@@ -121,6 +121,13 @@ const Home = () => {
       if (res.success) {
         console.log('Posts cargados:', res.data.length);
         
+        // Si no hay datos en la respuesta, detener las consultas
+        if (res.data.length === 0) {
+          console.log('No hay más posts disponibles');
+          setHasMore(false);
+          return;
+        }
+        
         // Filtrar los posts nuevos para eliminar duplicados
         const newPosts = res.data.filter(newPost => {
           // Verificar si este post ya existe en el estado actual
@@ -129,15 +136,24 @@ const Home = () => {
         
         console.log('Posts únicos a agregar:', newPosts.length);
         
+        // Si después de filtrar no hay posts nuevos, detener las consultas
+        if (newPosts.length === 0) {
+          console.log('No hay posts nuevos para agregar');
+          setHasMore(false);
+          return;
+        }
+        
         // Agregar solo los posts únicos a los existentes
         setPosts(prevPosts => [...prevPosts, ...newPosts]);
         setHasMore(res.hasMore);
         setSkip(prevSkip => prevSkip + limit); // Actualizar skip para la próxima carga
       } else {
         console.error('Error al cargar más posts:', res.msg);
+        setHasMore(false); // Detener las consultas en caso de error
       }
     } catch (error) {
       console.error('Error al cargar más posts:', error);
+      setHasMore(false); // Detener las consultas en caso de error
     } finally {
       setLoading(false);
     }
